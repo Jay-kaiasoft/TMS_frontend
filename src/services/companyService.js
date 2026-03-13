@@ -54,3 +54,13 @@ export const deleteCompany = async (id) => {
         throw error;
     }
 };
+
+export const getAllCompaniesWithUsers = async () => {
+    try {
+        const response = await axiosInterceptor.get(`${companyURL}/getAllUsers`);
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching all companies with users:", error);
+        throw error;
+    }
+};

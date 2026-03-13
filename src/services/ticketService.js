@@ -1,5 +1,15 @@
 import axiosInterceptor from './axiosInterceptor';
 
+export const filterTickets = async (filter) => {
+    try {
+        const response = await axiosInterceptor.post('/tickets/filter', filter);
+        return response.data;
+    } catch (error) {
+        console.error("Error filtering tickets:", error);
+        throw error;
+    }
+};
+
 export const getAllTickets = async () => {
     try {
         const response = await axiosInterceptor.get('/tickets');

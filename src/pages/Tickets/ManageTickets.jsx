@@ -9,6 +9,9 @@ import PermissionWrapper from '../../components/permissionWrapper/PermissionWrap
 import CustomButton from '../../components/common/CustomButton';
 import TicketFormModal from './TicketFormModal';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
+// Add imports
+import { useForm, FormProvider, useWatch } from 'react-hook-form';
+
 
 const formatDate = (iso) => {
     if (!iso) return "-";
@@ -30,6 +33,7 @@ const formatDate = (iso) => {
 };
 
 const ManageTickets = ({ setAlert }) => {
+
     const [tickets, setTickets] = useState([]);
     const [actionLoading, setActionLoading] = useState(false);
 
@@ -188,7 +192,7 @@ const ManageTickets = ({ setAlert }) => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex gap-2">
-                                                {ticket.as_customer && <Chip size="small" label="As Customer" color="primary" variant="outlined" />}
+                                                {ticket.as_customer && <Chip size="small" label="Internal" color="primary" variant="outlined" />}
                                                 {ticket.for_customer && <Chip size="small" label="For Customer" color="secondary" variant="outlined" />}
                                             </div>
                                         </td>

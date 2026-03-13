@@ -17,6 +17,7 @@ import { setAlert } from '../../redux/commonReducers/commonReducers';
 import { connect } from 'react-redux';
 import { getAllProjects } from '../../services/projectService';
 import HierarchySelect from '../../components/common/HierarchySelect';
+import { getAllCompaniesWithUsers } from '../../services/companyService';
 
 const TicketFormModal = ({
     open,
@@ -39,8 +40,8 @@ const TicketFormModal = ({
         }
     });
     const [projects, setProjects] = useState([]);
-    const [usersList, setUsersList] = useState([]);
     const [hierarchyData, setHierarchyData] = useState([]); // store hierarchy
+    const [companyHierarchyData, setCompanyHierarchyData] = useState([]);
 
     const [attachments, setAttachments] = useState([]);
     const userType = watch('user_type');
@@ -61,17 +62,33 @@ const TicketFormModal = ({
         }
     };
 
-    // We can fetch users to populate assignees SelectWithCheckbox
+    const transformCompanyData = (companies) => {
+        return companies.map(company => ({
+            id: `c-${company.id}`,
+            name: company.name,
+            selectable: false,          // companies are not selectable
+            hasChildren: true,
+            data: (company.data || []).map(user => ({
+                id: `u-${user.id}`,
+                name: user.name,
+                selectable: true,        // users are selectable
+                hasChildren: false
+            }))
+        }));
+    };
+
     const fetchUsers = async () => {
         try {
-            setValue("assignees", [])
+            setValue("assignees", []);
             if (userType === 'for_customer') {
-                const res = await getCustomers();
-                const options = res.result.map(u => ({ label: `${u.first_name} ${u.last_name} `, value: u.id }));
-                setUsersList(options);
+                // Use the new companies-with-users endpoint
+                const res = await getAllCompaniesWithUsers(); // you need to import this
+                const transformed = transformCompanyData(res.result || []);
+                setCompanyHierarchyData(transformed);
             } else {
                 const res = await getUserHierarchy();
                 setHierarchyData(res.result || []);
+                setCompanyHierarchyData([]); // clear old data
             }
         } catch (err) {
             console.error("Failed to load users", err);
@@ -141,6 +158,16 @@ const TicketFormModal = ({
     const handleFormSubmit = async (data) => {
         // Prepare payload correctly
         const payload = { ...data };
+        if (payload.assignees) {
+            payload.assignees = payload.assignees.map(id => {
+                // If it's a prefixed user id (e.g. 'u-3'), extract the number
+                if (typeof id === 'string' && id.startsWith('u-')) {
+                    return parseInt(id.substring(2), 10);
+                }
+                // For the other hierarchy (getUserHierarchy), ids are already numbers
+                return id;
+            });
+        }
         if (payload.due_date) {
             payload.due_date = payload.due_date.format('YYYY-MM-DD');
         } else {
@@ -280,7 +307,15 @@ const TicketFormModal = ({
                                 )}
                             />
                             {
-                                userType !== 'for_customer' ?
+                                userType === 'for_customer' ? (
+                                    <HierarchySelect
+                                        name="assignees"
+                                        control={control}
+                                        label="Assign Users"
+                                        hierarchyData={companyHierarchyData}
+                                        rules={{ validate: (value) => value && value.length > 0 || "Assign users is required" }}
+                                    />
+                                ) : (
                                     <HierarchySelect
                                         name="assignees"
                                         control={control}
@@ -288,18 +323,8 @@ const TicketFormModal = ({
                                         hierarchyData={hierarchyData}
                                         rules={{ validate: (value) => value && value.length > 0 || "Assign users is required" }}
                                     />
-                                    :
-                                    <CustomSelect
-                                        name="assignees"
-                                        control={control}
-                                        label="Assign Users"
-                                        options={usersList}
-                                        multiple={true}
-                                        withCheckbox={true}
-                                        rules={{ validate: (value) => value && value.length > 0 || "Assign users is required" }}
-                                    />
+                                )
                             }
-
                         </div>
 
                         {/* Attachment Upload - Always show - will be uploaded alongside ticket info */}
