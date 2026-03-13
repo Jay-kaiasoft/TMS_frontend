@@ -1,0 +1,83 @@
+import React, { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import CustomInput from '../../components/common/CustomInput';
+import CustomModalWrapper from '../../components/common/CustomModalWrapper';
+import { getStatusById } from '../../services/statusService';
+import { CircularProgress } from '@mui/material';
+
+const StatusFormDialog = ({
+    open,
+    onClose,
+    onSave,
+    editingStatusId,
+    isSubmitting
+}) => {
+    const {
+        control,
+        handleSubmit,
+        reset,
+    } = useForm({
+        defaultValues: {
+            name: ''
+        }
+    });
+
+    const [loadingData, setLoadingData] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            if (editingStatusId) {
+                setLoadingData(true);
+                getStatusById(editingStatusId).then(res => {
+                    reset({
+                        name: res.result.name || '',
+                    });
+                }).catch(err => {
+                    console.error("Failed to load status details", err);
+                }).finally(() => {
+                    setLoadingData(false);
+                });
+            } else {
+                reset({
+                    name: ''
+                });
+            }
+        }
+    }, [open, editingStatusId, reset]);
+
+    const handleFormSubmit = (data) => {
+        onSave(data);
+    };
+
+    return (
+        <CustomModalWrapper
+            open={open}
+            onClose={() => !isSubmitting && onClose()}
+            title={editingStatusId ? 'Edit Status' : 'Add New Status'}
+            onSubmit={handleSubmit(handleFormSubmit)}
+            isSubmitting={isSubmitting || loadingData}
+            submitText={editingStatusId ? 'Save Changes' : 'Submit'}
+            cancelText="Cancel"
+            maxWidth="sm"
+        >
+            <form id="status-form" onSubmit={handleSubmit(handleFormSubmit)}>
+                {loadingData ? (
+                    <div className="flex justify-center p-6">
+                        <CircularProgress size={30} sx={{ color: '#0052CC' }} />
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-2 mt-2">
+                        <CustomInput
+                            name="name"
+                            control={control}
+                            label="Status Name"
+                            rules={{ required: "Status name is required" }}
+                        />
+                    </div>
+                )}
+            </form>
+        </CustomModalWrapper>
+    );
+};
+
+export default StatusFormDialog;
