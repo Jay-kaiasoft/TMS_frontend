@@ -24,6 +24,7 @@ import PermissionWrapper from '../components/permissionWrapper/PermissionWrapper
 import { headerTitles, matchRoute } from '../utils/headerTitles';
 import { connect } from 'react-redux';
 import { setHeaderTitle } from '../redux/commonReducers/commonReducers';
+import { getCookie, removeCookie } from '../utils/cookieHelper';
 
 const iconMap = {
     "Dashboard": faChartPie,
@@ -64,7 +65,7 @@ const DashboardLayout = ({ setHeaderTitle, headerTitle }) => {
         const fetchNavigation = async () => {
             try {
                 // We will decode the email from JWT manually or just fetch
-                const token = localStorage.getItem('tms_token');
+                const token = getCookie('tms_token');
                 if (!token) {
                     navigate('/');
                     return;
@@ -94,7 +95,8 @@ const DashboardLayout = ({ setHeaderTitle, headerTitle }) => {
     }, [navigate]);
 
     const handleLogout = () => {
-        localStorage.removeItem('tms_token');
+        removeCookie('tms_token');
+        removeCookie('tms_user');
         navigate('/');
     };
 

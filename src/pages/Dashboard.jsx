@@ -5,10 +5,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowTrendUp, faTicketAlt, faCheckCircle, faTasks, faClock } from '@fortawesome/free-solid-svg-icons';
 import { connect } from 'react-redux';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import { getCookie, removeCookie } from '../utils/cookieHelper';
 
 const Dashboard = ({ sessionEndModel }) => {
     const navigate = useNavigate();
-    const token = localStorage.getItem('tms_token');
+    const token = getCookie('tms_token');
 
     if (!token) {
         navigate('/');
@@ -16,7 +17,8 @@ const Dashboard = ({ sessionEndModel }) => {
     }
 
     const handleLogout = () => {
-        localStorage.removeItem('tms_token');
+        removeCookie('tms_token');
+        removeCookie('tms_user');
         navigate('/');
     };
 

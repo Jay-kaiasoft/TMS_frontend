@@ -8,6 +8,7 @@ import CustomInput from '../../components/common/CustomInput';
 import { Button, CircularProgress } from '@mui/material';
 import { loginUser } from '../../services/authService';
 import { setAlert, setLoading } from '../../redux/commonReducers/commonReducers';
+import { setCookie, getCookie } from '../../utils/cookieHelper';
 
 const Login = ({ setAlert, setLoading, loading }) => {
     const navigate = useNavigate();
@@ -21,9 +22,9 @@ const Login = ({ setAlert, setLoading, loading }) => {
         try {
             const res = await loginUser(data);
             if (res?.status === 200) {
-                localStorage.setItem('tms_token', res?.result?.access_token);
+                setCookie('tms_token', res?.result?.access_token);
                 if (res?.result?.user_details) {
-                    localStorage.setItem('tms_user', JSON.stringify(res?.result?.user_details));
+                    setCookie('tms_user', JSON.stringify(res?.result?.user_details));
                     navigate('/dashboard');
                 }
             } else {
@@ -37,7 +38,7 @@ const Login = ({ setAlert, setLoading, loading }) => {
     };
 
     useEffect(() => {
-        const token = localStorage.getItem('tms_token');
+        const token = getCookie('tms_token');
         if (token) {
             navigate('/dashboard');
         }

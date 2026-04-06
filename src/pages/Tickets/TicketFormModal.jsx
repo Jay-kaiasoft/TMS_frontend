@@ -6,18 +6,18 @@ import CustomModalWrapper from '../../components/common/CustomModalWrapper';
 import RichTextEditor from '../../components/common/RichTextEditor';
 import DragDropAttachmentUpload from '../../components/common/DragDropAttachmentUpload';
 import { FormControlLabel, Radio, RadioGroup, CircularProgress } from '@mui/material';
-import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import { getTicketById } from '../../services/ticketService';
 import { deleteTicketAttachment, uploadTicketAttachment } from '../../services/ticketAttachmentService';
-import { getCustomers, getNonCustomers, getUserHierarchy } from '../../services/userService';
+import { getUserHierarchy } from '../../services/userService';
 import { getAllStatuses } from '../../services/statusService';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
 import { connect } from 'react-redux';
 import { getAllProjects } from '../../services/projectService';
 import HierarchySelect from '../../components/common/HierarchySelect';
 import { getAllCompaniesWithUsers } from '../../services/companyService';
+import DatePickerComponent from '../../components/common/datePickerComponent';
+import { getAllDepartments } from '../../services/departmentService';
 
 const TicketFormModal = ({
     open,
@@ -31,6 +31,7 @@ const TicketFormModal = ({
     const { control, handleSubmit, reset, watch, setValue } = useForm({
         defaultValues: {
             project_id: null,
+            department_id: null,
             title: '',
             description: '',
             due_date: null,
@@ -39,6 +40,7 @@ const TicketFormModal = ({
             status_id: ''
         }
     });
+    const [departments, setDepartments] = useState([]);
     const [projects, setProjects] = useState([]);
     const [hierarchyData, setHierarchyData] = useState([]); // store hierarchy
     const [companyHierarchyData, setCompanyHierarchyData] = useState([]);
@@ -51,6 +53,17 @@ const TicketFormModal = ({
     const [loadingData, setLoadingData] = useState(false);
     const [isUploadingFiles, setIsUploadingFiles] = useState(false);
 
+
+    const fetchDepartments = async () => {
+        try {
+            const res = await getAllDepartments();
+            const options = res.result?.map(u => ({ label: `${u.name}`, value: u.id }));
+            setDepartments(options);
+        } catch (err) {
+            console.error(err);
+            setAlert({ open: true, message: "Failed to load departments.", type: "error" });
+        }
+    };
 
     const fetchProjects = async () => {
         try {
@@ -110,6 +123,7 @@ const TicketFormModal = ({
     useEffect(() => {
         if (open) {
             fetchProjects();
+            fetchDepartments()
             fetchUsers();
             fetchStatuses();
         }
@@ -125,13 +139,20 @@ const TicketFormModal = ({
                     if (ticket.due_date) {
                         formattedDate = dayjs(ticket.due_date);
                     }
+                    const isForCustomer = ticket.for_customer;
+                    const formattedAssignees = (ticket.assignees || []).map(a => {
+                        const id = typeof a === 'object' ? a.id : a;
+                        return isForCustomer ? `u-${id}` : id;
+                    });
+
                     reset({
                         project_id: ticket.project_id || null,
+                        department_id: ticket.department_id || null,
                         title: ticket.title || '',
                         description: ticket.description || '',
                         due_date: formattedDate,
-                        user_type: ticket.for_customer ? 'for_customer' : 'as_customer',
-                        assignees: ticket.assignees || [],
+                        user_type: isForCustomer ? 'for_customer' : 'as_customer',
+                        assignees: formattedAssignees,
                         status_id: ticket.status_id || ''
                     });
                     setAttachments(ticket.attachments || []);
@@ -143,6 +164,7 @@ const TicketFormModal = ({
             } else {
                 reset({
                     project_id: null,
+                    department_id: null,
                     title: '',
                     description: '',
                     due_date: null,
@@ -271,6 +293,15 @@ const TicketFormModal = ({
 
                         <div className='mb-2'>
                             <CustomSelect
+                                name="department_id"
+                                control={control}
+                                label="Department"
+                                options={departments}
+                                rules={{ required: "Department is required" }}
+                            />
+                        </div>
+                        <div className='mb-2'>
+                            <CustomSelect
                                 name="status_id"
                                 control={control}
                                 label="Status"
@@ -280,32 +311,7 @@ const TicketFormModal = ({
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                            <Controller
-                                name="due_date"
-                                control={control}
-                                rules={{ required: true }}
-                                render={({ field: { onChange, value }, fieldState: { error } }) => (
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                        <DatePicker
-                                            label="Due Date"
-                                            value={value}
-                                            onChange={onChange}
-                                            format="DD/MM/YYYY"
-                                            slotProps={{
-                                                textField: {
-                                                    fullWidth: true,
-                                                    error: !!error,
-                                                    helperText: error ? error.message : null,
-                                                    size: "small", // matched style sizes typically 
-                                                    sx: { backgroundColor: 'white' },
-                                                    InputLabelProps: { shrink: true }
-                                                }
-                                            }}
-                                        />
-                                    </LocalizationProvider>
-                                )}
-                            />
+                            <DatePickerComponent requiredFiledLabel={true} setValue={setValue} control={control} name='due_date' label={`Due Date`} minDate={new Date()} maxDate={null} required={true} />
                             {
                                 userType === 'for_customer' ? (
                                     <HierarchySelect

@@ -2,6 +2,7 @@ import axios from 'axios';
 import { baseURL } from '../config/config.js';
 import { setLoading } from "../redux/commonReducers/commonReducers";
 import store from "../redux/store";
+import { getCookie, removeCookie } from '../utils/cookieHelper';
 
 const axiosInterceptor = axios.create({
     baseURL: baseURL,
@@ -11,7 +12,7 @@ const axiosInterceptor = axios.create({
 axiosInterceptor.interceptors.request.use(
     (config) => {
         store.dispatch(setLoading(true));
-        const token = localStorage.getItem('tms_token');
+        const token = getCookie('tms_token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -34,7 +35,8 @@ axiosInterceptor.interceptors.response.use(
         // Handle 401 Unauthorized globally
         if (error.response && error.response.status === 401) {
             console.warn("Unauthorized access: redirecting to login");
-            localStorage.removeItem('tms_token');
+            removeCookie('tms_token');
+            removeCookie('tms_user');
             // Optionally handle redirection to login here, or trigger an event/state
         }
         return Promise.reject(error);

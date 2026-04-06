@@ -1,30 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { CircularProgress, IconButton, Chip } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { IconButton, Chip, Tooltip, tooltipClasses } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import { connect } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faTicketAlt } from '@fortawesome/free-solid-svg-icons';
-import { getAllTickets, addTicket, updateTicket, deleteTicket } from '../../services/ticketService';
+import { getAllTickets, addTicket, updateTicket, deleteTicket, filterTickets } from '../../services/ticketService';
+import { Tabs } from '../../components/common/tabs';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import CustomButton from '../../components/common/CustomButton';
 import TicketFormModal from './TicketFormModal';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
-// Add imports
-import { useForm, FormProvider, useWatch } from 'react-hook-form';
 
 
 const formatDate = (iso) => {
     if (!iso) return "-";
-
-    // Extract year, month, day independently of timezone string bugs
     const dateStr = iso.split('T')[0];
     const [year, month, day] = dateStr.split('-');
     if (!year || !month || !day) return iso;
-
     const date = new Date(year, parseInt(month) - 1, day);
-
-    // Using Intl.DateTimeFormat is generally cleaner here:
-    // This will format as "Feb 27, 2026"
     return date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -32,20 +26,39 @@ const formatDate = (iso) => {
     });
 };
 
+const CustomTooltip = styled(({ className, ...props }) => (
+    <Tooltip {...props} arrow classes={{ popper: className }} />
+))(({ theme }) => ({
+    [`& .${tooltipClasses.tooltip}`]: {
+        backgroundColor: '#ffffff',
+        color: '#172B4D',
+        boxShadow: '0px 8px 24px rgba(9, 30, 66, 0.15), 0px 0px 1px rgba(9, 30, 66, 0.31)',
+        borderRadius: '6px',
+        padding: '12px 16px',
+        maxWidth: '280px',
+        fontSize: '0.875rem',
+    },
+    [`& .${tooltipClasses.arrow}`]: {
+        color: '#ffffff',
+        '&::before': {
+            boxShadow: '1px 1px 1px rgba(9, 30, 66, 0.1)',
+        },
+    },
+}));
+
 const ManageTickets = ({ setAlert }) => {
 
+    const [selectedTab, setSelectedTab] = useState(0);
     const [tickets, setTickets] = useState([]);
     const [actionLoading, setActionLoading] = useState(false);
-
-    // Dialog state
     const [openDialog, setOpenDialog] = useState(false);
     const [editingTicketId, setEditingTicketId] = useState(null);
-
-    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState({ open: false, ticket: null });
 
     const fetchTickets = async () => {
         try {
-            const data = await getAllTickets();
+            const filter = selectedTab === 0 ? { as_customer: true } : { for_customer: true };
+            const data = await filterTickets(filter);
             // In centralized axios interceptor, 'data' is already res.data
             // The backend sends { status, message, result }
             setTickets(data.result || []);
@@ -56,7 +69,7 @@ const ManageTickets = ({ setAlert }) => {
 
     useEffect(() => {
         fetchTickets();
-    }, []);
+    }, [selectedTab]);
 
     const handleOpen = (ticket = null) => {
         setEditingTicketId(ticket ? ticket.id : null);
@@ -119,21 +132,31 @@ const ManageTickets = ({ setAlert }) => {
     return (
         <div className="space-y-4 max-w-7xl mx-auto">
             {/* Toolbar */}
-            <div className="flex justify-end">
-                {/* 1 in functionalityName is Add actionId */}
-                <PermissionWrapper
-                    functionalityName="manage tickets"
-                    moduleName="Tickets List"
-                    actionId={1}
-                    component={
-                        <CustomButton
-                            startIcon={<FontAwesomeIcon icon={faPlus} />}
-                            onClick={() => handleOpen()}
-                        >
-                            Add Ticket
-                        </CustomButton>
-                    }
-                />
+            <div className="flex justify-between items-center mb-4">
+                <div>
+                    <Tabs
+                        selectedTab={selectedTab}
+                        handleChange={(idx) => setSelectedTab(idx)}
+                        tabsData={[{ label: 'Internal' }, { label: 'Customer' }]}
+                        fontSize="14px"
+                    />
+                </div>
+                <div className="flex justify-end">
+                    {/* 1 in functionalityName is Add actionId */}
+                    <PermissionWrapper
+                        functionalityName="manage tickets"
+                        moduleName="Tickets List"
+                        actionId={1}
+                        component={
+                            <CustomButton
+                                startIcon={<FontAwesomeIcon icon={faPlus} />}
+                                onClick={() => handleOpen()}
+                            >
+                                Add Ticket
+                            </CustomButton>
+                        }
+                    />
+                </div>
             </div>
 
             {/* Content Section */}
@@ -172,7 +195,33 @@ const ManageTickets = ({ setAlert }) => {
                                 {tickets.map((ticket) => (
                                     <tr key={ticket.id} className="hover:bg-[#FAFBFC] transition-colors group">
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-semibold text-[#172B4D]">{ticket.title}</div>
+                                            {ticket?.assignees?.length > 0 ? (
+                                                <CustomTooltip
+                                                    placement="bottom-start"
+                                                    title={
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[10px] font-bold text-[#6B778C] uppercase tracking-wider mb-2">
+                                                                Assigned To
+                                                            </span>
+                                                            <ul className="m-0 pl-4 list-disc space-y-1">
+                                                                {ticket.assignees.map((user, index) => (
+                                                                    <li key={index} className="text-[#172B4D] font-medium text-xs leading-relaxed">
+                                                                        {user.name}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    }
+                                                >
+                                                    <div className="text-sm font-semibold text-[#172B4D] cursor-pointer hover:text-[#0052CC] transition-colors inline-block font-sans">
+                                                        {ticket.title}
+                                                    </div>
+                                                </CustomTooltip>
+                                            ) : (
+                                                <div className="text-sm font-semibold text-[#172B4D] font-sans">
+                                                    {ticket.title}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             {ticket.status_name ? (

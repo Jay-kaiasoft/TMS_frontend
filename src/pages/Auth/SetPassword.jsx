@@ -8,6 +8,8 @@ import { Button, CircularProgress } from '@mui/material';
 import { setPassword } from '../../services/authService';
 import { setAlert, setLoading } from '../../redux/commonReducers/commonReducers';
 
+import { getCookie } from '../../utils/cookieHelper';
+
 const SetPassword = ({ setAlert, setLoading, loading }) => {
     const [searchParams] = useSearchParams();
     const token = searchParams.get('token');
@@ -18,7 +20,7 @@ const SetPassword = ({ setAlert, setLoading, loading }) => {
     });
 
     useEffect(() => {
-        const token = localStorage.getItem('tms_token');
+        const token = getCookie('tms_token');
         if (token) {
             navigate('/dashboard');
         }

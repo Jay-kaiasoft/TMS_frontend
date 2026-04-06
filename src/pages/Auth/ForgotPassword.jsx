@@ -7,6 +7,7 @@ import CustomInput from '../../components/common/CustomInput';
 import { Button, CircularProgress } from '@mui/material';
 import { forgotPassword } from '../../services/authService';
 import { setAlert, setLoading } from '../../redux/commonReducers/commonReducers';
+import { getCookie } from '../../utils/cookieHelper';
 
 const ForgotPassword = ({ setAlert, setLoading, loading }) => {
     const navigate = useNavigate();

@@ -5,8 +5,11 @@ import CustomCheckbox from '../../components/common/CustomCheckbox';
 import CustomSelect from '../../components/common/CustomSelect';
 import CustomModalWrapper from '../../components/common/CustomModalWrapper';
 import { getNonCustomers, getUserById } from '../../services/userService';
-import { CircularProgress } from '@mui/material';
+import { CircularProgress, IconButton, Tooltip } from '@mui/material';
 import { getAllCompanies } from '../../services/companyService';
+import { faPlus } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import CompanyFormDialog from '../Companies/CompanyFormDialog';
 
 const UserFormDialog = ({
     open,
@@ -32,12 +35,22 @@ const UserFormDialog = ({
     const [loadingData, setLoadingData] = useState(false);
     const [usersList, setUsersList] = useState([]);
     const [companies, setCompanies] = useState([]);
+    const [openDialog, setOpenDialog] = useState(false);
+
+    const handleOpen = () => {
+        setOpenDialog(true);
+    };
+
+    const handleClose = () => {
+        setOpenDialog(false);
+    };
 
     const fetchCompanies = async () => {
         try {
             const res = await getAllCompanies();
             const options = res?.result?.map(u => ({ label: `${u.company_name}`, value: u.id }));
             setCompanies(options)
+            handleClose()
         } catch (err) {
             console.error(err);
         }
@@ -177,14 +190,26 @@ const UserFormDialog = ({
 
                         {
                             watch("role_id") === 3 && (
-                                <div className='mt-4'>
-                                    <CustomSelect
-                                        name="company_id"
-                                        control={control}
-                                        label="Company"
-                                        options={companies}
-                                        rules={{ required: "Company is required" }}
-                                    />
+                                <div className='mt-4 flex items-center gap-4'>
+                                    <div className='w-full'>
+                                        <CustomSelect
+                                            name="company_id"
+                                            control={control}
+                                            label="Company"
+                                            options={companies}
+                                            rules={{ required: "Company is required" }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Tooltip title="Add Company">
+                                            <IconButton
+                                                size="small"
+                                                onClick={handleOpen}
+                                            >
+                                                <FontAwesomeIcon icon={faPlus} className="text-[#172B4D] font-bold" />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </div>
                                 </div>
                             )
                         }
@@ -207,15 +232,21 @@ const UserFormDialog = ({
                                 control={control}
                                 label={<span className="text-sm font-medium">Account Active</span>}
                             />
-                            <CustomCheckbox
+                            {/* <CustomCheckbox
                                 name="is_sms_active"
                                 control={control}
                                 label={<span className="text-sm font-medium">SMS Alerts Enabled</span>}
-                            />
+                            /> */}
                         </div>
                     </div>
                 )}
             </form>
+            <CompanyFormDialog
+                open={openDialog}
+                onClose={handleClose}
+                onSave={fetchCompanies}
+                editingCompanyId={null}
+            />
         </CustomModalWrapper>
     );
 };

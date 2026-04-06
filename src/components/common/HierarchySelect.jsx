@@ -102,6 +102,33 @@ const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags
         return descendants;
     };
 
+    const hasAnySelectedDescendant = (nodeId, selectionSet) => {
+        const descendants = getDescendants(nodeId);
+        // Exclude the node itself to check if ANY children/sub-children are selected
+        descendants.delete(nodeId);
+        for (const id of descendants) {
+            if (selectionSet.has(id)) return true;
+        }
+        return false;
+    };
+
+    const applyHierarchyRemoval = (selectionSet, nodeId) => {
+        // 1. Remove node and all descendants
+        const toRemove = getDescendants(nodeId);
+        toRemove.forEach(id => selectionSet.delete(id));
+
+        // 2. Climb up and remove ancestors if they no longer have selected descendants
+        let currentParentId = parentMap[nodeId];
+        while (currentParentId) {
+            if (!hasAnySelectedDescendant(currentParentId, selectionSet)) {
+                selectionSet.delete(currentParentId);
+                currentParentId = parentMap[currentParentId];
+            } else {
+                break; // Ancestor still has other selected descendants
+            }
+        }
+    };
+
     const computeExpandedSelection = (selectedIds) => {
         const expanded = new Set();
         selectedIds.forEach(id => {
@@ -139,11 +166,10 @@ const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags
                 const handleToggle = (nodeId) => {
                     let newSelection = new Set(selectedIds);
                     if (expandedSelection.has(nodeId)) {
-                        // Uncheck: remove node and all descendants
-                        const toRemove = getDescendants(nodeId);
-                        toRemove.forEach(id => newSelection.delete(id));
+                        // Uncheck logic: remove node, descendants, and potentially ancestors
+                        applyHierarchyRemoval(newSelection, nodeId);
                     } else {
-                        // Check: add node and all ancestors
+                        // Check logic: add node and all ancestors
                         const toAdd = getAncestors(nodeId);
                         toAdd.forEach(id => newSelection.add(id));
                     }
@@ -162,8 +188,7 @@ const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags
                         if (removedIds.length > 0) {
                             let newSelection = new Set(selectedIds);
                             removedIds.forEach(id => {
-                                const toRemove = getDescendants(id);
-                                toRemove.forEach(did => newSelection.delete(did));
+                                applyHierarchyRemoval(newSelection, id);
                             });
                             const filtered = filterSelectable(Array.from(newSelection));
                             onChange(filtered);
