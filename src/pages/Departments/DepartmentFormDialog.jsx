@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { connect } from 'react-redux';
 import CustomInput from '../../components/common/CustomInput';
 import CustomModalWrapper from '../../components/common/CustomModalWrapper';
-import { getDepartmentById } from '../../services/departmentService';
+import { getDepartmentById, addDepartment, updateDepartment } from '../../services/departmentService';
 import { CircularProgress } from '@mui/material';
+import { setAlert } from '../../redux/commonReducers/commonReducers';
 
 const DepartmentFormDialog = ({
     open,
     onClose,
-    onSave,
+    onSuccess,
     editingDepartmentId,
-    apiError,
-    isSubmitting
+    setAlert
 }) => {
     const {
         control,
@@ -24,6 +25,7 @@ const DepartmentFormDialog = ({
     });
 
     const [loadingData, setLoadingData] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (open) {
@@ -35,6 +37,7 @@ const DepartmentFormDialog = ({
                     });
                 }).catch(err => {
                     console.error("Failed to load department", err);
+                    setAlert({ open: true, message: "Failed to load department details.", type: "error" });
                 }).finally(() => {
                     setLoadingData(false);
                 });
@@ -44,10 +47,32 @@ const DepartmentFormDialog = ({
                 });
             }
         }
-    }, [open, editingDepartmentId, reset]);
+    }, [open, editingDepartmentId, reset, setAlert]);
 
-    const handleFormSubmit = (data) => {
-        onSave(data);
+    const handleFormSubmit = async (data) => {
+        setIsSubmitting(true);
+        try {
+            if (editingDepartmentId) {
+                await updateDepartment(editingDepartmentId, data);
+            } else {
+                await addDepartment(data);
+            }
+            setAlert({ 
+                open: true, 
+                message: `Department ${editingDepartmentId ? 'updated' : 'created'} successfully!`, 
+                type: "success" 
+            });
+            if (onSuccess) onSuccess();
+        } catch (err) {
+            console.error(err);
+            setAlert({ 
+                open: true, 
+                message: err.message || "Failed to save department.", 
+                type: "error" 
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -68,12 +93,6 @@ const DepartmentFormDialog = ({
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2 mt-2">
-                        {apiError && (
-                            <div className="p-3 bg-[#FFEBE6] text-[#BF2600] rounded-md text-sm font-medium mb-4">
-                                {apiError}
-                            </div>
-                        )}
-
                         <CustomInput
                             name="name"
                             control={control}
@@ -87,4 +106,10 @@ const DepartmentFormDialog = ({
     );
 };
 
-export default DepartmentFormDialog;
+const mapStateToProps = (state) => ({});
+
+const mapDispatchToProps = {
+    setAlert
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(DepartmentFormDialog);

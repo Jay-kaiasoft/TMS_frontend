@@ -4,7 +4,7 @@ import CustomButton from '../../components/common/CustomButton';
 import UserFormDialog from './UserFormDialog';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faEnvelope, faPhone, faMapMarkerAlt, faUserShield } from '@fortawesome/free-solid-svg-icons';
-import { getAllUsers, addUser, updateUser, deleteUser } from '../../services/userService';
+import { getAllUsers, deleteUser } from '../../services/userService';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import { connect } from 'react-redux';
@@ -16,7 +16,6 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
     // Modal State
     const [open, setOpen] = useState(false);
     const [editingUserId, setEditingUserId] = useState(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Delete State
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -60,31 +59,6 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
     const handleClose = () => {
         setOpen(false);
         setEditingUserId(null);
-    };
-
-    const onSubmit = async (data) => {
-        setIsSubmitting(true);
-        try {
-            if (editingUserId) {
-                const updateData = { ...data };
-                if (!updateData.password) {
-                    delete updateData.password;
-                }
-                await updateUser(editingUserId, updateData);
-            } else {
-                await addUser(data);
-            }
-            fetchUsers();
-            handleClose();
-        } catch (error) {
-            setAlert({
-                message: error.message || "Failed to save user",
-                type: "error",
-                open: true
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
     };
 
     const confirmDelete = (user) => {
@@ -223,9 +197,11 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
             <UserFormDialog
                 open={open}
                 onClose={handleClose}
-                onSave={onSubmit}
+                onSuccess={() => {
+                    fetchUsers();
+                    handleClose();
+                }}
                 editingUserId={editingUserId}
-                isSubmitting={isSubmitting}
             />
 
             <ConfirmDialog

@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { connect } from 'react-redux';
 import CustomInput from '../../components/common/CustomInput';
 import CustomModalWrapper from '../../components/common/CustomModalWrapper';
-import { getStatusById } from '../../services/statusService';
+import { getStatusById, addStatus, updateStatus } from '../../services/statusService';
 import { CircularProgress } from '@mui/material';
+import { setAlert } from '../../redux/commonReducers/commonReducers';
 
 const StatusFormDialog = ({
     open,
     onClose,
-    onSave,
+    onSuccess,
     editingStatusId,
-    isSubmitting
+    setAlert
 }) => {
     const {
         control,
@@ -23,6 +25,7 @@ const StatusFormDialog = ({
     });
 
     const [loadingData, setLoadingData] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (open) {
@@ -34,6 +37,7 @@ const StatusFormDialog = ({
                     });
                 }).catch(err => {
                     console.error("Failed to load status details", err);
+                    setAlert({ open: true, message: "Failed to load status details.", type: "error" });
                 }).finally(() => {
                     setLoadingData(false);
                 });
@@ -43,10 +47,32 @@ const StatusFormDialog = ({
                 });
             }
         }
-    }, [open, editingStatusId, reset]);
+    }, [open, editingStatusId, reset, setAlert]);
 
-    const handleFormSubmit = (data) => {
-        onSave(data);
+    const handleFormSubmit = async (data) => {
+        setIsSubmitting(true);
+        try {
+            if (editingStatusId) {
+                await updateStatus(editingStatusId, data);
+            } else {
+                await addStatus(data);
+            }
+            if (onSuccess) onSuccess();
+            setAlert({ 
+                open: true, 
+                message: `Status ${editingStatusId ? 'updated' : 'created'} successfully!`, 
+                type: "success" 
+            });
+        } catch (err) {
+            console.error(err);
+            setAlert({ 
+                open: true, 
+                message: err.message || "Failed to save status.", 
+                type: "error" 
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -80,4 +106,10 @@ const StatusFormDialog = ({
     );
 };
 
-export default StatusFormDialog;
+const mapStateToProps = (state) => ({});
+
+const mapDispatchToProps = {
+    setAlert
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(StatusFormDialog);

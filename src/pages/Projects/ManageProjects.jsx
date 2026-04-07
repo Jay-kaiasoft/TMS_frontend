@@ -6,7 +6,7 @@ import Tooltip, { tooltipClasses } from '@mui/material/Tooltip';
 import { connect } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faFolderOpen } from '@fortawesome/free-solid-svg-icons';
-import { getAllProjects, addProject, updateProject, deleteProject } from '../../services/projectService';
+import { getAllProjects, deleteProject } from '../../services/projectService';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import CustomButton from '../../components/common/CustomButton';
@@ -67,24 +67,6 @@ const ManageProjects = ({ setAlert }) => {
     const handleClose = () => {
         setOpenDialog(false);
         setEditingProjectId(null);
-    };
-
-    const onSubmit = async (data) => {
-        setActionLoading(true);
-        try {
-            if (editingProjectId) {
-                await updateProject(editingProjectId, data);
-            } else {
-                await addProject(data);
-            }
-            fetchProjects();
-            handleClose();
-        } catch (err) {
-            console.error(err);
-            setAlert({ open: true, message: err.message || "Failed to save project.", type: "error" });
-        } finally {
-            setActionLoading(false);
-        }
     };
 
     const openDeleteConfirm = (project) => {
@@ -229,9 +211,11 @@ const ManageProjects = ({ setAlert }) => {
             <ProjectFormDialog
                 open={openDialog}
                 onClose={handleClose}
-                onSave={onSubmit}
+                onSuccess={() => {
+                    fetchProjects();
+                    handleClose();
+                }}
                 editingProjectId={editingProjectId}
-                isSubmitting={actionLoading}
             />
 
             <ConfirmDialog

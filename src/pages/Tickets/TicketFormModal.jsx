@@ -5,9 +5,11 @@ import CustomSelect from '../../components/common/CustomSelect';
 import CustomModalWrapper from '../../components/common/CustomModalWrapper';
 import RichTextEditor from '../../components/common/RichTextEditor';
 import DragDropAttachmentUpload from '../../components/common/DragDropAttachmentUpload';
-import { FormControlLabel, Radio, RadioGroup, CircularProgress } from '@mui/material';
+import { FormControlLabel, Radio, RadioGroup, CircularProgress, Tooltip, IconButton } from '@mui/material';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faLink, faCheck } from '@fortawesome/free-solid-svg-icons';
 import dayjs from 'dayjs';
-import { getTicketById } from '../../services/ticketService';
+import { getTicketById, addTicket, updateTicket } from '../../services/ticketService';
 import { deleteTicketAttachment, uploadTicketAttachment } from '../../services/ticketAttachmentService';
 import { getUserHierarchy } from '../../services/userService';
 import { getAllStatuses } from '../../services/statusService';
@@ -22,9 +24,7 @@ import { getAllDepartments } from '../../services/departmentService';
 const TicketFormModal = ({
     open,
     onClose,
-    onSave,
     editingTicketId,
-    isSubmitting,
     setAlert,
     onSuccess
 }) => {
@@ -51,7 +51,10 @@ const TicketFormModal = ({
 
     const attachmentRef = useRef(null);
     const [loadingData, setLoadingData] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+    const [ticketNoVisible, setTicketNoVisible] = useState('');
+    const [copied, setCopied] = useState(false);
 
 
     const fetchDepartments = async () => {
@@ -155,6 +158,7 @@ const TicketFormModal = ({
                         assignees: formattedAssignees,
                         status_id: ticket.status_id || ''
                     });
+                    setTicketNoVisible(ticket.ticket_no || '');
                     setAttachments(ticket.attachments || []);
                 }).catch(err => {
                     console.error("Failed to load ticket details", err);
@@ -172,44 +176,82 @@ const TicketFormModal = ({
                     assignees: [],
                     status_id: ''
                 });
+                setTicketNoVisible('');
                 setAttachments([]);
             }
         }
     }, [open, editingTicketId, reset]);
 
     const handleFormSubmit = async (data) => {
-        // Prepare payload correctly
-        const payload = { ...data };
-        if (payload.assignees) {
-            payload.assignees = payload.assignees.map(id => {
-                // If it's a prefixed user id (e.g. 'u-3'), extract the number
-                if (typeof id === 'string' && id.startsWith('u-')) {
-                    return parseInt(id.substring(2), 10);
-                }
-                // For the other hierarchy (getUserHierarchy), ids are already numbers
-                return id;
-            });
-        }
-        if (payload.due_date) {
-            payload.due_date = payload.due_date.format('YYYY-MM-DD');
-        } else {
-            payload.due_date = null;
-        }
-
-        payload.as_customer = payload.user_type === 'as_customer';
-        payload.for_customer = payload.user_type === 'for_customer';
-        delete payload.user_type;
-        // Save the form, let parent handle creation/edit logic
-        setIsUploadingFiles(true);
-        const resultingTicketId = await onSave(payload);
-        if (resultingTicketId) {
-            if (attachmentRef.current) {
-                await attachmentRef.current.uploadPendingFiles(resultingTicketId);
+        setIsSubmitting(true);
+        try {
+            // Prepare payload correctly
+            const payload = { ...data };
+            if (payload.assignees) {
+                payload.assignees = payload.assignees.map(id => {
+                    if (typeof id === 'string' && id.startsWith('u-')) {
+                        return parseInt(id.substring(2), 10);
+                    }
+                    return id;
+                });
             }
-            if (onSuccess) onSuccess();
-            onClose();
+            if (payload.due_date) {
+                payload.due_date = payload.due_date.format('YYYY-MM-DD');
+            } else {
+                payload.due_date = null;
+            }
+
+            payload.as_customer = payload.user_type === 'as_customer';
+            payload.for_customer = payload.user_type === 'for_customer';
+            delete payload.user_type;
+
+            const selectedProject = projects.find(p => p.value === data.project_id);
+            payload.project_name = selectedProject ? selectedProject.label : "";
+
+            let resultingTicketId = editingTicketId;
+            if (editingTicketId) {
+                const res = await updateTicket(editingTicketId, payload);
+                if (res.status !== 200) {
+                    setAlert({ open: true, message: res.message || "Failed to update ticket.", type: "error" });
+                    setIsSubmitting(false);
+                    return;
+                }
+            } else {
+                const res = await addTicket(payload);
+                if (res.status !== 201 && res.status !== 200) {
+                    setAlert({ open: true, message: res.message || "Failed to create ticket.", type: "error" });
+                    setIsSubmitting(false);
+                    return;
+                }
+                resultingTicketId = res.result?.id;
+            }
+
+            if (resultingTicketId) {
+                setIsUploadingFiles(true);
+                if (attachmentRef.current) {
+                    await attachmentRef.current.uploadPendingFiles(resultingTicketId);
+                }
+                setIsUploadingFiles(false);
+                setAlert({ open: true, message: `Ticket ${editingTicketId ? 'updated' : 'created'} successfully!`, type: "success" });
+                if (onSuccess) onSuccess();
+                onClose();
+            }
+        } catch (err) {
+            console.error(err);
+            setAlert({ open: true, message: err.message || "Failed to save ticket.", type: "error" });
+        } finally {
+            setIsSubmitting(false);
         }
-        setIsUploadingFiles(false);
+    };
+
+    const handleCopyLink = () => {
+        const siteUrl = import.meta.env.REACT_APP_MAIN_SITE_URL || window.location.origin;
+        const link = `${siteUrl}/dashboard/manage-tickets`;
+        
+        navigator.clipboard.writeText(link).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
     };
 
     const handleUploadSuccess = (response) => {
@@ -238,6 +280,27 @@ const TicketFormModal = ({
             onSubmit={handleSubmit(handleFormSubmit)}
             isSubmitting={isSubmitting || loadingData || isUploadingFiles}
             submitText={editingTicketId ? 'Save Changes' : 'Submit'}
+            headerExtra={editingTicketId && ticketNoVisible && (
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-[#F4F5F7] border border-[#DFE1E6] rounded-md shadow-sm">
+                        <span className="text-[10px] font-bold text-[#6B778C] uppercase tracking-wider">Ticket ID</span>
+                        <span className="text-sm font-bold text-[#172B4D]">{ticketNoVisible}</span>
+                    </div>
+                    <Tooltip title={copied ? "Copied!" : "Copy link"} arrow>
+                        <IconButton
+                            size="small"
+                            onClick={handleCopyLink}
+                            sx={{ 
+                                color: copied ? '#36B37E' : '#42526E',
+                                backgroundColor: '#F4F5F7',
+                                '&:hover': { backgroundColor: '#EBECF0' }
+                            }}
+                        >
+                            <FontAwesomeIcon icon={copied ? faCheck : faLink} size="xs" />
+                        </IconButton>
+                    </Tooltip>
+                </div>
+            )}
             cancelText="Cancel"
             maxWidth="md" // Make it slightly wider for rich text
         >

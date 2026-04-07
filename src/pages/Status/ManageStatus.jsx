@@ -3,7 +3,7 @@ import { CircularProgress, IconButton } from '@mui/material';
 import { connect } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faTasks } from '@fortawesome/free-solid-svg-icons';
-import { getAllStatuses, addStatus, updateStatus, deleteStatus } from '../../services/statusService';
+import { getAllStatuses, deleteStatus } from '../../services/statusService';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import CustomButton from '../../components/common/CustomButton';
@@ -43,25 +43,6 @@ const ManageStatus = ({ setAlert }) => {
     const handleClose = () => {
         setOpenDialog(false);
         setEditingStatusId(null);
-    };
-
-    const onSubmit = async (data) => {
-        setActionLoading(true);
-        try {
-            if (editingStatusId) {
-                await updateStatus(editingStatusId, data);
-            } else {
-                await addStatus(data);
-            }
-            fetchStatuses();
-            handleClose();
-            setAlert({ open: true, message: `Status ${editingStatusId ? 'updated' : 'created'} successfully!`, type: "success" });
-        } catch (err) {
-            console.error(err);
-            setAlert({ open: true, message: err.message || "Failed to save status.", type: "error" });
-        } finally {
-            setActionLoading(false);
-        }
     };
 
     const openDeleteConfirm = (statusItem) => {
@@ -172,9 +153,11 @@ const ManageStatus = ({ setAlert }) => {
             <StatusFormDialog
                 open={openDialog}
                 onClose={handleClose}
-                onSave={onSubmit}
+                onSuccess={() => {
+                    fetchStatuses();
+                    handleClose();
+                }}
                 editingStatusId={editingStatusId}
-                isSubmitting={actionLoading}
             />
 
             <ConfirmDialog

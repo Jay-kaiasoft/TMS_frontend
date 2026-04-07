@@ -1,29 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { connect } from 'react-redux';
 import CustomInput from '../../components/common/CustomInput';
 import CustomCheckbox from '../../components/common/CustomCheckbox';
 import CustomSelect from '../../components/common/CustomSelect';
 import CustomModalWrapper from '../../components/common/CustomModalWrapper';
-import { getNonCustomers, getUserById } from '../../services/userService';
+import { getNonCustomers, getUserById, addUser, updateUser } from '../../services/userService';
 import { CircularProgress, IconButton, Tooltip } from '@mui/material';
 import { getAllCompanies } from '../../services/companyService';
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import CompanyFormDialog from '../Companies/CompanyFormDialog';
+import { setAlert } from '../../redux/commonReducers/commonReducers';
 
 const UserFormDialog = ({
     open,
     onClose,
-    onSave,
+    onSuccess,
     editingUserId,
-    isSubmitting
+    setAlert
 }) => {
     const {
         control,
         handleSubmit,
         reset,
-        formState: { errors },
-        watch
+        watch,
+        setValue
     } = useForm({
         defaultValues: {
             first_name: '', last_name: '', email: '', password: '', role_id: 3,
@@ -33,6 +35,7 @@ const UserFormDialog = ({
     });
 
     const [loadingData, setLoadingData] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [usersList, setUsersList] = useState([]);
     const [companies, setCompanies] = useState([]);
     const [openDialog, setOpenDialog] = useState(false);
@@ -49,8 +52,8 @@ const UserFormDialog = ({
         try {
             const res = await getAllCompanies();
             const options = res?.result?.map(u => ({ label: `${u.company_name}`, value: u.id }));
-            setCompanies(options)
-            handleClose()
+            setCompanies(options);
+            handleClose();
         } catch (err) {
             console.error(err);
         }
@@ -69,7 +72,7 @@ const UserFormDialog = ({
     useEffect(() => {
         if (open) {
             fetchUsers();
-            fetchCompanies()
+            fetchCompanies();
             if (editingUserId) {
                 setLoadingData(true);
                 getUserById(editingUserId).then(res => {
@@ -91,6 +94,7 @@ const UserFormDialog = ({
                     });
                 }).catch(err => {
                     console.error("Failed to fetch user details", err);
+                    setAlert({ open: true, message: "Failed to load user details.", type: "error" });
                 }).finally(() => {
                     setLoadingData(false);
                 });
@@ -102,10 +106,36 @@ const UserFormDialog = ({
                 });
             }
         }
-    }, [open, editingUserId, reset]);
+    }, [open, editingUserId, reset, setAlert]);
 
-    const handleFormSubmit = (data) => {
-        onSave(data);
+    const handleFormSubmit = async (data) => {
+        setIsSubmitting(true);
+        try {
+            if (editingUserId) {
+                const updateData = { ...data };
+                if (!updateData.password) {
+                    delete updateData.password;
+                }
+                await updateUser(editingUserId, updateData);
+            } else {
+                await addUser(data);
+            }
+            setAlert({ 
+                open: true, 
+                message: `User ${editingUserId ? 'updated' : 'created'} successfully!`, 
+                type: "success" 
+            });
+            if (onSuccess) onSuccess();
+        } catch (err) {
+            console.error(err);
+            setAlert({ 
+                open: true, 
+                message: err.message || "Failed to save user.", 
+                type: "error" 
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const roleOptions = [
@@ -133,7 +163,7 @@ const UserFormDialog = ({
                 ) : (
                     <div className="flex flex-col gap-2">
 
-                        <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="grid grid-cols-2 gap-4 mb-4 mt-2">
                             <CustomInput
                                 name="first_name"
                                 control={control}
@@ -232,11 +262,6 @@ const UserFormDialog = ({
                                 control={control}
                                 label={<span className="text-sm font-medium">Account Active</span>}
                             />
-                            {/* <CustomCheckbox
-                                name="is_sms_active"
-                                control={control}
-                                label={<span className="text-sm font-medium">SMS Alerts Enabled</span>}
-                            /> */}
                         </div>
                     </div>
                 )}
@@ -251,4 +276,10 @@ const UserFormDialog = ({
     );
 };
 
-export default UserFormDialog;
+const mapStateToProps = (state) => ({});
+
+const mapDispatchToProps = {
+    setAlert
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(UserFormDialog);

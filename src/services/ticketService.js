@@ -59,3 +59,23 @@ export const deleteTicket = async (id) => {
         throw error;
     }
 };
+
+export const updateTicketStatus = async (id, statusId) => {
+    try {
+        const response = await axiosInterceptor.patch(`/tickets/${id}/status`, { status_id: statusId });
+        return response.data;
+    } catch (error) {
+        console.error(`Error updating ticket status ${id}:`, error);
+        throw error;
+    }
+};
+
+export const updateTicketTitle = async (id, title) => {
+    try {
+        const response = await axiosInterceptor.patch(`/tickets/${id}/title`, { title });
+        return response.data;
+    } catch (error) {
+        console.error(`Error updating ticket title ${id}:`, error);
+        throw error;
+    }
+};

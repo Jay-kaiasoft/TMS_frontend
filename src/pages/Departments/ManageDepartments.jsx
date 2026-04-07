@@ -3,7 +3,7 @@ import { CircularProgress, IconButton } from '@mui/material';
 import { connect } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faBuilding } from '@fortawesome/free-solid-svg-icons';
-import { getAllDepartments, addDepartment, updateDepartment, deleteDepartment } from '../../services/departmentService';
+import { getAllDepartments, deleteDepartment } from '../../services/departmentService';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import CustomButton from '../../components/common/CustomButton';
@@ -42,25 +42,6 @@ const ManageDepartments = ({ setAlert }) => {
     const handleClose = () => {
         setOpenDialog(false);
         setEditingDepartmentId(null);
-    };
-
-    const onSubmit = async (data) => {
-        setActionLoading(true);
-        try {
-            if (editingDepartmentId) {
-                await updateDepartment(editingDepartmentId, data);
-            } else {
-                await addDepartment(data);
-            }
-            fetchDepartments();
-            handleClose();
-            setAlert({ open: true, message: `Department ${editingDepartmentId ? 'updated' : 'created'} successfully!`, type: "success" });
-        } catch (err) {
-            console.error(err);
-            setAlert({ open: true, message: err.message || "Failed to save department.", type: "error" });
-        } finally {
-            setActionLoading(false);
-        }
     };
 
     const openDeleteConfirm = (department) => {
@@ -168,9 +149,11 @@ const ManageDepartments = ({ setAlert }) => {
             <DepartmentFormDialog
                 open={openDialog}
                 onClose={handleClose}
-                onSave={onSubmit}
+                onSuccess={() => {
+                    fetchDepartments();
+                    handleClose();
+                }}
                 editingDepartmentId={editingDepartmentId}
-                isSubmitting={actionLoading}
             />
 
             <ConfirmDialog

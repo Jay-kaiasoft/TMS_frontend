@@ -9,12 +9,14 @@ import { Button, CircularProgress } from '@mui/material';
 import { loginUser } from '../../services/authService';
 import { setAlert, setLoading } from '../../redux/commonReducers/commonReducers';
 import { setCookie, getCookie } from '../../utils/cookieHelper';
+import CustomCheckbox from '../../components/common/CustomCheckbox';
+import { encryptData, decryptData } from '../../utils/cryptoHelper';
 
 const Login = ({ setAlert, setLoading, loading }) => {
     const navigate = useNavigate();
 
-    const { control: loginControl, handleSubmit: handleLoginSubmit } = useForm({
-        defaultValues: { email: '', password: '' }
+    const { control: loginControl, handleSubmit: handleLoginSubmit, setValue } = useForm({
+        defaultValues: { email: '', password: '', remember_me: false }
     });
 
     const onLogin = async (data) => {
@@ -25,6 +27,19 @@ const Login = ({ setAlert, setLoading, loading }) => {
                 setCookie('tms_token', res?.result?.access_token);
                 if (res?.result?.user_details) {
                     setCookie('tms_user', JSON.stringify(res?.result?.user_details));
+
+                    if (data.remember_me) {
+                        const encEmail = await encryptData(data.email);
+                        const encPassword = await encryptData(data.password);
+                        localStorage.setItem('email', encEmail);
+                        localStorage.setItem('password', encPassword);
+                        localStorage.setItem('remember_me', 'true');
+                    } else {
+                        localStorage.removeItem('email');
+                        localStorage.removeItem('password');
+                        localStorage.removeItem('remember_me');
+                    }
+
                     navigate('/dashboard');
                 }
             } else {
@@ -42,7 +57,25 @@ const Login = ({ setAlert, setLoading, loading }) => {
         if (token) {
             navigate('/dashboard');
         }
-    }, [])
+
+        const handleRememberMe = async () => {
+            const rememberMe = localStorage.getItem('remember_me') === 'true';
+            if (rememberMe) {
+                const encEmail = localStorage.getItem('email');
+                const encPassword = localStorage.getItem('password');
+
+                if (encEmail && encPassword) {
+                    const email = await decryptData(encEmail);
+                    const password = await decryptData(encPassword);
+
+                    if (email) setValue('email', email);
+                    if (password) setValue('password', password);
+                    setValue('remember_me', true);
+                }
+            }
+        };
+        handleRememberMe();
+    }, [navigate, setValue])
 
     return (
         <AuthLayout
@@ -69,7 +102,12 @@ const Login = ({ setAlert, setLoading, loading }) => {
                     />
                 </div>
 
-                <div className="flex justify-end pb-2">
+                <div className="flex justify-between items-center">
+                    <CustomCheckbox
+                        name="remember_me"
+                        control={loginControl}
+                        label={<span className="text-sm font-medium">Remember me</span>}
+                    />
                     <Link to="/forgot-password" className="text-sm text-primary-600 hover:underline">
                         Forgot password?
                     </Link>

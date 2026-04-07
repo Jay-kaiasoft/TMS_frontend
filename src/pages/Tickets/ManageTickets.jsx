@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { IconButton, Chip, Tooltip, tooltipClasses } from '@mui/material';
+import { IconButton, Chip, Tooltip, tooltipClasses, Box, ButtonGroup, Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { connect } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faTicketAlt } from '@fortawesome/free-solid-svg-icons';
-import { getAllTickets, addTicket, updateTicket, deleteTicket, filterTickets } from '../../services/ticketService';
+import { faPlus, faEdit, faTrash, faTicketAlt, faLink, faCheck, faThLarge, faList } from '@fortawesome/free-solid-svg-icons';
+import { getAllTickets, deleteTicket, filterTickets } from '../../services/ticketService';
 import { Tabs } from '../../components/common/tabs';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import CustomButton from '../../components/common/CustomButton';
 import TicketFormModal from './TicketFormModal';
+import KanbanBoard from './KanbanBoard';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
 
 
@@ -17,13 +18,7 @@ const formatDate = (iso) => {
     if (!iso) return "-";
     const dateStr = iso.split('T')[0];
     const [year, month, day] = dateStr.split('-');
-    if (!year || !month || !day) return iso;
-    const date = new Date(year, parseInt(month) - 1, day);
-    return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-    });
+    return `${day}/${month}/${year}`;
 };
 
 const CustomTooltip = styled(({ className, ...props }) => (
@@ -47,23 +42,30 @@ const CustomTooltip = styled(({ className, ...props }) => (
 }));
 
 const ManageTickets = ({ setAlert }) => {
-
-    const [selectedTab, setSelectedTab] = useState(0);
     const [tickets, setTickets] = useState([]);
     const [actionLoading, setActionLoading] = useState(false);
+    const [selectedTab, setSelectedTab] = useState(0); // 0 for Internal, 1 for Customer
+    const [view, setView] = useState('kanban'); // 'table' or 'kanban'
+
+    // Dialog state
     const [openDialog, setOpenDialog] = useState(false);
     const [editingTicketId, setEditingTicketId] = useState(null);
+
+    // Delete confirm dialogue state
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState({ open: false, ticket: null });
+    const [copiedTicketId, setCopiedTicketId] = useState(null);
 
     const fetchTickets = async () => {
         try {
-            const filter = selectedTab === 0 ? { as_customer: true } : { for_customer: true };
-            const data = await filterTickets(filter);
-            // In centralized axios interceptor, 'data' is already res.data
-            // The backend sends { status, message, result }
-            setTickets(data.result || []);
+            const filter = {
+                as_customer: selectedTab === 0,
+                for_customer: selectedTab === 1
+            };
+            const res = await filterTickets(filter);
+            setTickets(res.result || []);
         } catch (err) {
-            setAlert({ open: true, message: err.message || "Failed to load tickets.", type: "error" });
+            console.error(err);
+            setAlert({ open: true, message: "Failed to load tickets.", type: "error" });
         }
     };
 
@@ -79,33 +81,6 @@ const ManageTickets = ({ setAlert }) => {
     const handleClose = () => {
         setOpenDialog(false);
         setEditingTicketId(null);
-    };
-
-    const onSubmit = async (data) => {
-        setActionLoading(true);
-        try {
-            let resultingTicketId = editingTicketId;
-            if (editingTicketId) {
-                const res = await updateTicket(editingTicketId, data);
-                if (res.status !== 200) {
-                    setAlert({ open: true, message: res.message || "Failed to update ticket.", type: "error" });
-                    return null;
-                }
-            } else {
-                const res = await addTicket(data);
-                if (res.status !== 201 && res.status !== 200) {
-                    setAlert({ open: true, message: res.message || "Failed to create ticket.", type: "error" });
-                    return null;
-                }
-                resultingTicketId = res.result?.id;
-            }
-            return resultingTicketId;
-        } catch (err) {
-            setAlert({ open: true, message: err.message || "Failed to save ticket.", type: "error" });
-            return null;
-        } finally {
-            setActionLoading(false);
-        }
     };
 
     const openDeleteConfirm = (ticket) => {
@@ -129,11 +104,34 @@ const ManageTickets = ({ setAlert }) => {
         }
     };
 
+    const handleCopyLink = (e, ticketId) => {
+        e.stopPropagation();
+        const siteUrl = import.meta.env.REACT_APP_MAIN_SITE_URL || window.location.origin;
+        const link = `${siteUrl}/dashboard/manage-tickets`;
+
+        navigator.clipboard.writeText(link).then(() => {
+            setCopiedTicketId(ticketId);
+            setTimeout(() => setCopiedTicketId(null), 2000);
+        });
+    };
+
     return (
-        <div className="space-y-4 max-w-7xl mx-auto">
+        <div className="space-y-4 max-w-full mx-auto px-4">
+            {/* View Toggle - Outside of primary toolbar */}
+            <div className='border-b border-gray-300'>
+                <Tabs
+                    selectedTab={view === 'kanban' ? 0 : 1}
+                    handleChange={(idx) => setView(idx === 0 ? 'kanban' : 'table')}
+                    tabsData={[
+                        { label: 'Board', icon: <FontAwesomeIcon icon={faThLarge} /> },
+                        { label: 'List', icon: <FontAwesomeIcon icon={faList} /> }
+                    ]}
+                    fontSize="14px"
+                />
+            </div>
             {/* Toolbar */}
-            <div className="flex justify-between items-center mb-4">
-                <div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+                <div className="flex items-center gap-4 w-full sm:w-auto">
                     <Tabs
                         selectedTab={selectedTab}
                         handleChange={(idx) => setSelectedTab(idx)}
@@ -141,7 +139,8 @@ const ManageTickets = ({ setAlert }) => {
                         fontSize="14px"
                     />
                 </div>
-                <div className="flex justify-end">
+
+                <div className="flex justify-end w-full sm:w-auto">
                     {/* 1 in functionalityName is Add actionId */}
                     <PermissionWrapper
                         functionalityName="manage tickets"
@@ -160,130 +159,153 @@ const ManageTickets = ({ setAlert }) => {
             </div>
 
             {/* Content Section */}
-            <div className="bg-white border border-[#DFE1E6] rounded-xl shadow-sm overflow-hidden">
-                {tickets.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-12 text-center">
-                        <div className="w-16 h-16 bg-[#F4F5F7] rounded-full flex items-center justify-center mb-4 text-[#8993A4]">
-                            <FontAwesomeIcon icon={faTicketAlt} size="2x" />
+            {view === 'table' ? (
+                <div className="bg-white border border-[#DFE1E6] rounded-xl shadow-sm overflow-hidden">
+                    {tickets.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-12 text-center">
+                            <div className="w-16 h-16 bg-[#F4F5F7] rounded-full flex items-center justify-center mb-4 text-[#8993A4]">
+                                <FontAwesomeIcon icon={faTicketAlt} size="2x" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-[#172B4D] mb-1">No tickets found</h3>
+                            <p className="text-[#5E6C84] mb-4">Get started by creating your first ticket.</p>
                         </div>
-                        <h3 className="text-lg font-semibold text-[#172B4D] mb-1">No tickets found</h3>
-                        <p className="text-[#5E6C84] mb-4">Get started by creating your first ticket.</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-[#DFE1E6]">
-                            <thead className="bg-[#FAFBFC]">
-                                <tr>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">
-                                        Title
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">
-                                        Status
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">
-                                        Due Date
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">
-                                        Visibility
-                                    </th>
-                                    <th scope="col" className="px-6 py-4 text-right text-xs font-bold text-[#8993A4] uppercase tracking-wider w-24">
-                                        Actions
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-[#DFE1E6]">
-                                {tickets.map((ticket) => (
-                                    <tr key={ticket.id} className="hover:bg-[#FAFBFC] transition-colors group">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {ticket?.assignees?.length > 0 ? (
-                                                <CustomTooltip
-                                                    placement="bottom-start"
-                                                    title={
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[10px] font-bold text-[#6B778C] uppercase tracking-wider mb-2">
-                                                                Assigned To
-                                                            </span>
-                                                            <ul className="m-0 pl-4 list-disc space-y-1">
-                                                                {ticket.assignees.map((user, index) => (
-                                                                    <li key={index} className="text-[#172B4D] font-medium text-xs leading-relaxed">
-                                                                        {user.name}
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-[#DFE1E6]">
+                                <thead className="bg-[#FAFBFC]">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">
+                                            Ticket ID
+                                        </th>
+                                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">
+                                            Title
+                                        </th>
+                                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">
+                                            Due Date
+                                        </th>
+                                        <th scope="col" className="px-6 py-4 text-right text-xs font-bold text-[#8993A4] uppercase tracking-wider w-24">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-[#DFE1E6]">
+                                    {tickets.map((ticket) => (
+                                        <tr key={ticket.id} className="hover:bg-[#FAFBFC] transition-colors group">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-2 group/id">
+                                                    {ticket?.assignees?.length > 0 ? (
+                                                        <CustomTooltip
+                                                            placement="bottom-start"
+                                                            title={
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[10px] font-bold text-[#6B778C] uppercase tracking-wider mb-2">
+                                                                        Assigned To
+                                                                    </span>
+                                                                    <ul className="m-0 pl-4 list-disc space-y-1">
+                                                                        {ticket.assignees.map((user, index) => (
+                                                                            <li key={index} className="text-[#172B4D] font-medium text-xs leading-relaxed">
+                                                                                {user.name}
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
+                                                                </div>
+                                                            }
+                                                        >
+                                                            <div className="text-sm font-semibold text-[#172B4D] cursor-pointer hover:text-[#0052CC] transition-colors inline-block font-sans">
+                                                                {ticket.ticket_no}
+                                                            </div>
+                                                        </CustomTooltip>
+                                                    ) : (
+                                                        <div className="text-sm font-semibold text-[#172B4D] font-sans">
+                                                            {ticket.ticket_no}
                                                         </div>
-                                                    }
-                                                >
-                                                    <div className="text-sm font-semibold text-[#172B4D] cursor-pointer hover:text-[#0052CC] transition-colors inline-block font-sans">
-                                                        {ticket.title}
-                                                    </div>
-                                                </CustomTooltip>
-                                            ) : (
+                                                    )}
+
+                                                    <Tooltip title={copiedTicketId === ticket.id ? "Copied!" : "Copy link"} arrow>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={(e) => handleCopyLink(e, ticket.id)}
+                                                            className={`opacity-0 group-hover/id:opacity-100 transition-opacity duration-200 ${copiedTicketId === ticket.id ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                                        >
+                                                            <FontAwesomeIcon
+                                                                icon={copiedTicketId === ticket.id ? faCheck : faLink}
+                                                                size="xs"
+                                                            />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-semibold text-[#172B4D] font-sans">
                                                     {ticket.title}
                                                 </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {ticket.status_name ? (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#E9F2FF] text-[#0052CC]">
-                                                    {ticket.status_name}
-                                                </span>
-                                            ) : (
-                                                <span className="text-xs text-[#8993A4]">-</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {ticket.due_date ? (
-                                                <div className="text-sm text-[#172B4D]">{formatDate(ticket.due_date)}</div>
-                                            ) : (
-                                                <span className="text-xs text-[#8993A4]">-</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex gap-2">
-                                                {ticket.as_customer && <Chip size="small" label="Internal" color="primary" variant="outlined" />}
-                                                {ticket.for_customer && <Chip size="small" label="For Customer" color="secondary" variant="outlined" />}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div>
-                                                <PermissionWrapper
-                                                    functionalityName="manage tickets"
-                                                    moduleName="Tickets List"
-                                                    actionId={2}
-                                                    component={
-                                                        <IconButton onClick={() => handleOpen(ticket)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
-                                                            <FontAwesomeIcon icon={faEdit} size="sm" />
-                                                        </IconButton>
-                                                    }
-                                                />
-                                                <PermissionWrapper
-                                                    functionalityName="manage tickets"
-                                                    moduleName="Tickets List"
-                                                    actionId={3}
-                                                    component={
-                                                        <IconButton onClick={() => openDeleteConfirm(ticket)} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
-                                                            <FontAwesomeIcon icon={faTrash} size="sm" />
-                                                        </IconButton>
-                                                    }
-                                                />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {ticket.status_name ? (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#E9F2FF] text-[#0052CC]">
+                                                        {ticket.status_name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-[#8993A4]">-</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {ticket.due_date ? (
+                                                    <div className="text-sm text-[#172B4D]">{formatDate(ticket.due_date)}</div>
+                                                ) : (
+                                                    <span className="text-xs text-[#8993A4]">-</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div>
+                                                    <PermissionWrapper
+                                                        functionalityName="manage tickets"
+                                                        moduleName="Tickets List"
+                                                        actionId={2}
+                                                        component={
+                                                            <IconButton onClick={() => handleOpen(ticket)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
+                                                                <FontAwesomeIcon icon={faEdit} size="sm" />
+                                                            </IconButton>
+                                                        }
+                                                    />
+                                                    <PermissionWrapper
+                                                        functionalityName="manage tickets"
+                                                        moduleName="Tickets List"
+                                                        actionId={3}
+                                                        component={
+                                                            <IconButton onClick={() => openDeleteConfirm(ticket)} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
+                                                                <FontAwesomeIcon icon={faTrash} size="sm" />
+                                                            </IconButton>
+                                                        }
+                                                    />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <KanbanBoard
+                    tickets={tickets}
+                    fetchTickets={fetchTickets}
+                    onAddTicket={handleOpen}
+                />
+            )}
 
             <TicketFormModal
                 open={openDialog}
                 onClose={handleClose}
-                onSave={onSubmit}
-                onSuccess={fetchTickets}
+                onSuccess={() => {
+                    fetchTickets();
+                    handleClose();
+                }}
                 editingTicketId={editingTicketId}
-                isSubmitting={actionLoading}
             />
 
             <ConfirmDialog

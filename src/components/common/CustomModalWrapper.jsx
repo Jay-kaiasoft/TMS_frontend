@@ -14,6 +14,7 @@ const CustomModalWrapper = ({
     submitText = 'Submit',
     cancelText = 'Cancel',
     showFooter = true,
+    headerExtra = null,
 }) => {
     return (
         <Dialog
@@ -22,23 +23,32 @@ const CustomModalWrapper = ({
             maxWidth={maxWidth}
             fullWidth
             PaperProps={{
-                sx: { borderRadius: '8px', m: 2 }
+                sx: {
+                    borderRadius: '8px',
+                    m: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden'
+                }
             }}
         >
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#DFE1E6]">
                 <DialogTitle sx={{ p: 0, fontWeight: 600, color: '#172B4D', fontSize: '1.25rem' }}>
                     {title}
                 </DialogTitle>
-                <IconButton
-                    onClick={onClose}
-                    disabled={isSubmitting}
-                    size="small"
-                >
-                    <FontAwesomeIcon icon={faTimes} className="text-[#172B4D] text-lg font-bold" />
-                </IconButton>
+                <div className="flex items-center gap-3">
+                    {headerExtra}
+                    <IconButton
+                        onClick={onClose}
+                        disabled={isSubmitting}
+                        size="small"
+                    >
+                        <FontAwesomeIcon icon={faTimes} className="text-[#172B4D] text-lg font-bold" />
+                    </IconButton>
+                </div>
             </div>
 
-            <DialogContent sx={{ p: "1.5rem" }}>
+            <DialogContent sx={{ p: "1.5rem", overflowY: 'auto' }}>
                 {children}
             </DialogContent>
 
