@@ -4,9 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faFile, faTrash, faDownload, faSpinner, faEye } from '@fortawesome/free-solid-svg-icons';
 import { IconButton, LinearProgress, Dialog, DialogContent } from '@mui/material';
 import ConfirmDialog from './ConfirmDialog';
-import { setAlert } from '../../redux/commonReducers/commonReducers';
-import { connect } from 'react-redux';
-
+import { getUserDetails } from '../../utils/getUserDetails';
 // Constant for chunk size: 5MB
 const CHUNK_SIZE = 5 * 1024 * 1024;
 
@@ -15,8 +13,10 @@ const DragDropAttachmentUpload = forwardRef(({
     uploadApiFunction,
     existingAttachments = [],
     onDeleteExisting,
-    setAlert
+    setAlert,
+    compact = false
 }, ref) => {
+    const currentUser = getUserDetails();
     const [pendingFiles, setPendingFiles] = useState([]);
     const [uploadingFiles, setUploadingFiles] = useState([]);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState({ open: false, attId: null, fileName: '' });
@@ -50,6 +50,7 @@ const DragDropAttachmentUpload = forwardRef(({
     };
 
     useImperativeHandle(ref, () => ({
+        getPendingCount: () => pendingFiles.length,
         uploadPendingFiles: async (entityId) => {
             console.log("pendingFiles", pendingFiles)
             if (pendingFiles.length === 0) return;
@@ -118,7 +119,7 @@ const DragDropAttachmentUpload = forwardRef(({
 
     // Handle downloading
     const getAbsoluteUrl = (url) => {
-        return url.startsWith('http') ? url : `${import.meta.env.VITE_APP_MAIN_SITE_URL || ''}${url}`;
+        return url.startsWith('http') ? url : `${import.meta.env.REACT_APP_MAIN_SITE_URL || ''}${url}`;
     };
 
     const handleDownload = (e, url, fileName) => {
@@ -162,14 +163,14 @@ const DragDropAttachmentUpload = forwardRef(({
             <div
                 {...getRootProps()}
                 className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-[#0052CC] bg-[#E9F2FF]' : 'border-[#DFE1E6] hover:border-[#8993A4] bg-[#FAFBFC]'
-                    }`}
+                    } ${compact ? 'p-4' : 'p-8'}`}
             >
                 <input {...getInputProps()} />
-                <FontAwesomeIcon icon={faCloudUploadAlt} className="text-[#8993A4] text-4xl mb-4" />
-                <p className="text-[#172B4D] font-medium mb-1">
+                {!compact && <FontAwesomeIcon icon={faCloudUploadAlt} className="text-[#8993A4] text-4xl mb-4" />}
+                <p className={`text-[#172B4D] font-medium mb-1 ${compact ? 'text-sm' : ''}`}>
                     {isDragActive ? "Drop the files here..." : "Drag & drop files here, or click to select files"}
                 </p>
-                <p className="text-[#5E6C84] text-sm">Supports up to 100MB per file.</p>
+                {!compact && <p className="text-[#5E6C84] text-sm">Supports up to 100MB per file.</p>}
             </div>
 
             {/* List of pending files */}
@@ -248,7 +249,7 @@ const DragDropAttachmentUpload = forwardRef(({
                                         >
                                             <FontAwesomeIcon icon={faDownload} />
                                         </button>
-                                        {onDeleteExisting && (
+                                        {(onDeleteExisting && att.created_by === currentUser?.id) && (
                                             <button
                                                 onClick={(e) => handleDeleteClick(e, att.id, att.file_name)}
                                                 className="bg-white text-[#DE350B] hover:text-[#BF2600] w-8 h-8 rounded shadow flex items-center justify-center cursor-pointer"

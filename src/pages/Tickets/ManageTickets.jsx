@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
-import { IconButton, Chip, Tooltip, tooltipClasses, Box, ButtonGroup, Button } from '@mui/material';
+import { IconButton, Chip, Tooltip, tooltipClasses } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { connect } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faTicketAlt, faLink, faCheck, faThLarge, faList } from '@fortawesome/free-solid-svg-icons';
-import { getAllTickets, deleteTicket, filterTickets } from '../../services/ticketService';
+import { deleteTicket, filterTickets } from '../../services/ticketService';
 import { Tabs } from '../../components/common/tabs';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import CustomButton from '../../components/common/CustomButton';
 import TicketFormModal from './TicketFormModal';
 import KanbanBoard from './KanbanBoard';
+import { useForm } from 'react-hook-form';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
-
+import CustomSelect from '../../components/common/CustomSelect';
 
 const formatDate = (iso) => {
     if (!iso) return "-";
@@ -44,7 +45,13 @@ const CustomTooltip = styled(({ className, ...props }) => (
 const ManageTickets = ({ setAlert }) => {
     const [tickets, setTickets] = useState([]);
     const [actionLoading, setActionLoading] = useState(false);
-    const [selectedTab, setSelectedTab] = useState(0); // 0 for Internal, 1 for Customer
+    const { control, watch } = useForm({
+        defaultValues: {
+            filterType: 0 // 0 for Internal, 1 for Customer
+        }
+    });
+
+    const filterType = watch('filterType');
     const [view, setView] = useState('kanban'); // 'table' or 'kanban'
 
     // Dialog state
@@ -58,8 +65,8 @@ const ManageTickets = ({ setAlert }) => {
     const fetchTickets = async () => {
         try {
             const filter = {
-                as_customer: selectedTab === 0,
-                for_customer: selectedTab === 1
+                as_customer: filterType === 0,
+                for_customer: filterType === 1
             };
             const res = await filterTickets(filter);
             setTickets(res.result || []);
@@ -71,7 +78,7 @@ const ManageTickets = ({ setAlert }) => {
 
     useEffect(() => {
         fetchTickets();
-    }, [selectedTab]);
+    }, [filterType]);
 
     const handleOpen = (ticket = null) => {
         setEditingTicketId(ticket ? ticket.id : null);
@@ -132,11 +139,16 @@ const ManageTickets = ({ setAlert }) => {
             {/* Toolbar */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
                 <div className="flex items-center gap-4 w-full sm:w-auto">
-                    <Tabs
-                        selectedTab={selectedTab}
-                        handleChange={(idx) => setSelectedTab(idx)}
-                        tabsData={[{ label: 'Internal' }, { label: 'Customer' }]}
-                        fontSize="14px"
+                    <CustomSelect
+                        name="filterType"
+                        control={control}
+                        label="Filter By"
+                        options={[
+                            { label: 'Internal', value: 0 },
+                            { label: 'Customer', value: 1 }
+                        ]}
+                        className="mb-0"
+                        sx={{ minWidth: 250 }}
                     />
                 </div>
 
@@ -193,7 +205,10 @@ const ManageTickets = ({ setAlert }) => {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-[#DFE1E6]">
                                     {tickets.map((ticket) => (
-                                        <tr key={ticket.id} className="hover:bg-[#FAFBFC] transition-colors group">
+                                        <tr
+                                            key={ticket.id}
+                                            className="hover:bg-[#FAFBFC] transition-colors group"
+                                        >
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-2 group/id">
                                                     {ticket?.assignees?.length > 0 ? (
@@ -214,7 +229,7 @@ const ManageTickets = ({ setAlert }) => {
                                                                 </div>
                                                             }
                                                         >
-                                                            <div className="text-sm font-semibold text-[#172B4D] cursor-pointer hover:text-[#0052CC] transition-colors inline-block font-sans">
+                                                            <div className="text-sm font-semibold text-[#172B4D] hover:text-[#0052CC] transition-colors inline-block font-sans">
                                                                 {ticket.ticket_no}
                                                             </div>
                                                         </CustomTooltip>
@@ -266,7 +281,7 @@ const ManageTickets = ({ setAlert }) => {
                                                         moduleName="Tickets List"
                                                         actionId={2}
                                                         component={
-                                                            <IconButton onClick={() => handleOpen(ticket)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
+                                                            <IconButton onClick={(e) => { e.stopPropagation(); handleOpen(ticket); }} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
                                                                 <FontAwesomeIcon icon={faEdit} size="sm" />
                                                             </IconButton>
                                                         }
@@ -276,7 +291,7 @@ const ManageTickets = ({ setAlert }) => {
                                                         moduleName="Tickets List"
                                                         actionId={3}
                                                         component={
-                                                            <IconButton onClick={() => openDeleteConfirm(ticket)} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
+                                                            <IconButton onClick={(e) => { e.stopPropagation(); openDeleteConfirm(ticket); }} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
                                                                 <FontAwesomeIcon icon={faTrash} size="sm" />
                                                             </IconButton>
                                                         }

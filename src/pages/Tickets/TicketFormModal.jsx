@@ -20,6 +20,7 @@ import HierarchySelect from '../../components/common/HierarchySelect';
 import { getAllCompaniesWithUsers } from '../../services/companyService';
 import DatePickerComponent from '../../components/common/datePickerComponent';
 import { getAllDepartments } from '../../services/departmentService';
+import CommentSection from '../../components/common/CommentSection/CommentSection';
 
 const TicketFormModal = ({
     open,
@@ -247,7 +248,7 @@ const TicketFormModal = ({
     const handleCopyLink = () => {
         const siteUrl = import.meta.env.REACT_APP_MAIN_SITE_URL || window.location.origin;
         const link = `${siteUrl}/dashboard/manage-tickets`;
-        
+
         navigator.clipboard.writeText(link).then(() => {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
@@ -290,7 +291,7 @@ const TicketFormModal = ({
                         <IconButton
                             size="small"
                             onClick={handleCopyLink}
-                            sx={{ 
+                            sx={{
                                 color: copied ? '#36B37E' : '#42526E',
                                 backgroundColor: '#F4F5F7',
                                 '&:hover': { backgroundColor: '#EBECF0' }
@@ -411,6 +412,13 @@ const TicketFormModal = ({
                     </div>
                 )}
             </form>
+
+            {editingTicketId && !loadingData && (
+                <div className="mt-4 border-t border-[#DFE1E6] pt-4">
+                    <h3 className="text-md font-semibold text-[#172B4D] mb-4">Comments</h3>
+                    <CommentSection ticketId={editingTicketId} />
+                </div>
+            )}
         </CustomModalWrapper>
     );
 };

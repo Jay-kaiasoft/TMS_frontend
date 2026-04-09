@@ -35,17 +35,17 @@ const InlineEdit = ({ initialValue, onSave, onCancel, sx = {} }) => {
     };
 
     return (
-        <Box 
-            sx={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: 1, 
+        <Box
+            sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
                 width: '100%',
                 backgroundColor: '#E9F2FF',
                 padding: '8px',
                 borderRadius: '4px',
-                border: '2px solid #4C9AFF',
-                ...sx 
+                // border: '2px solid #4C9AFF',
+                ...sx
             }}
             onClick={(e) => e.stopPropagation()}
         >
@@ -72,22 +72,22 @@ const InlineEdit = ({ initialValue, onSave, onCancel, sx = {} }) => {
                 }}
             />
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                <IconButton 
-                    size="small" 
+                <IconButton
+                    size="small"
                     onClick={handleSave}
-                    sx={{ 
-                        backgroundColor: 'white', 
+                    sx={{
+                        backgroundColor: 'white',
                         boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                         '&:hover': { backgroundColor: '#f4f5f7' }
                     }}
                 >
                     <FontAwesomeIcon icon={faCheck} size="xs" color="#36B37E" />
                 </IconButton>
-                <IconButton 
-                    size="small" 
+                <IconButton
+                    size="small"
                     onClick={handleCancel}
-                    sx={{ 
-                        backgroundColor: 'white', 
+                    sx={{
+                        backgroundColor: 'white',
                         boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                         '&:hover': { backgroundColor: '#f4f5f7' }
                     }}

@@ -8,21 +8,32 @@ import { setAlert } from '../../redux/commonReducers/commonReducers';
 import KanbanColumn from './KanbanColumn';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
+import StatusFormDialog from '../Status/StatusFormDialog';
 
 const KanbanBoard = ({ tickets, fetchTickets, setAlert, onAddTicket }) => {
     const [statuses, setStatuses] = useState([]);
     const [boardData, setBoardData] = useState({});
+    const [openDialog, setOpenDialog] = useState(false);
+
+    const handleOpen = () => {
+        setOpenDialog(true);
+    };
+
+    const handleClose = () => {
+        setOpenDialog(false);
+    };
+
+    const loadStatuses = async () => {
+        try {
+            const res = await getAllStatuses();
+            // Assumes res.result is an array of statuses
+            setStatuses(res.result?.reverse() || []);
+        } catch (err) {
+            setAlert({ open: true, message: "Failed to load statuses", type: "error" });
+        }
+    };
 
     useEffect(() => {
-        const loadStatuses = async () => {
-            try {
-                const res = await getAllStatuses();
-                // Assumes res.result is an array of statuses
-                setStatuses(res.result?.reverse() || []);
-            } catch (err) {
-                setAlert({ open: true, message: "Failed to load statuses", type: "error" });
-            }
-        };
         loadStatuses();
     }, [setAlert]);
 
@@ -115,6 +126,7 @@ const KanbanBoard = ({ tickets, fetchTickets, setAlert, onAddTicket }) => {
                             status={status}
                             tickets={boardData[status.id] || []}
                             onUpdateTitle={handleUpdateTitle}
+                            fetchTickets={fetchTickets}
                         />
                     ))}
 
@@ -127,6 +139,7 @@ const KanbanBoard = ({ tickets, fetchTickets, setAlert, onAddTicket }) => {
                             color: '#5E6C84',
                             '&:hover': { color: '#172B4D', backgroundColor: 'rgba(9, 30, 66, 0.08)', borderRadius: '8px' }
                         }}
+                        onClick={() => handleOpen()}
                     >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <FontAwesomeIcon icon={faPlus} size="sm" />
@@ -135,6 +148,14 @@ const KanbanBoard = ({ tickets, fetchTickets, setAlert, onAddTicket }) => {
                     </Box>
                 </Box>
             </DragDropContext>
+            <StatusFormDialog
+                open={openDialog}
+                onClose={handleClose}
+                onSuccess={() => {
+                    loadStatuses();
+                    handleClose();
+                }}
+            />
         </Box>
     );
 };

@@ -12,7 +12,7 @@ const getStatusIcon = (statusName) => {
     if (name.includes('done') || name.includes('complete')) return faCheck;
 };
 
-const KanbanColumn = ({ status, tickets, onUpdateTitle }) => {
+const KanbanColumn = ({ status, tickets, onUpdateTitle, fetchTickets }) => {
     return (
         <Box
             sx={{
@@ -82,6 +82,7 @@ const KanbanColumn = ({ status, tickets, onUpdateTitle }) => {
                                 ticket={ticket}
                                 index={index}
                                 onUpdateTitle={onUpdateTitle}
+                                fetchTickets={fetchTickets}
                             />
                         ))}
                         {provided.placeholder}
