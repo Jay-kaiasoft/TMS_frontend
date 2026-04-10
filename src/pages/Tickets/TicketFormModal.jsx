@@ -36,6 +36,7 @@ const TicketFormModal = ({
             title: '',
             description: '',
             due_date: null,
+            working_hours: null,
             user_type: 'as_customer',
             assignees: [],
             status_id: ''
@@ -155,6 +156,7 @@ const TicketFormModal = ({
                         title: ticket.title || '',
                         description: ticket.description || '',
                         due_date: formattedDate,
+                        working_hours: ticket.working_hours || null,
                         user_type: isForCustomer ? 'for_customer' : 'as_customer',
                         assignees: formattedAssignees,
                         status_id: ticket.status_id || ''
@@ -173,6 +175,7 @@ const TicketFormModal = ({
                     title: '',
                     description: '',
                     due_date: null,
+                    working_hours: null,
                     user_type: 'as_customer',
                     assignees: [],
                     status_id: ''
@@ -355,7 +358,7 @@ const TicketFormModal = ({
                             />
                         </div>
 
-                        <div className='mb-2'>
+                        <div className='grid grid-cols-2 gap-4 mb-2'>
                             <CustomSelect
                                 name="department_id"
                                 control={control}
@@ -363,8 +366,6 @@ const TicketFormModal = ({
                                 options={departments}
                                 rules={{ required: "Department is required" }}
                             />
-                        </div>
-                        <div className='mb-2'>
                             <CustomSelect
                                 name="status_id"
                                 control={control}
@@ -396,7 +397,33 @@ const TicketFormModal = ({
                                 )
                             }
                         </div>
+                        <div className='mb-2'>
+                            <CustomInput
+                                name="working_hours"
+                                control={control}
+                                label="Total Working Hours"
+                                onChange={(e, onChange) => {
+                                    let value = e.target.value;
 
+                                    // 1. Remove any character that isn't a digit or a dot
+                                    value = value.replace(/[^0-9.]/g, '');
+
+                                    // 2. Prevent multiple dots (keep only the first one)
+                                    const parts = value.split('.');
+                                    if (parts.length > 2) {
+                                        value = parts[0] + '.' + parts.slice(1).join('');
+                                    }
+
+                                    // 3. Limit to 2 digits after the dot
+                                    if (parts[1] && parts[1].length > 2) {
+                                        value = parts[0] + '.' + parts[1].substring(0, 2);
+                                    }
+
+                                    onChange(value);
+                                }}
+                            />
+
+                        </div>
                         {/* Attachment Upload - Always show - will be uploaded alongside ticket info */}
                         <div className="mt-4 border-t border-[#DFE1E6] pt-4">
                             <h3 className="text-md font-semibold text-[#172B4D] mb-4">Attachments</h3>

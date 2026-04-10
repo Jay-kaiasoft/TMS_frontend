@@ -7,10 +7,11 @@ import CommentItem from './CommentItem';
 import CommentEditor from './CommentEditor';
 import { getUserDetails } from '../../../utils/getUserDetails';
 import { COMMENT_TYPES } from '../../../utils/constants';
+import { connect } from 'react-redux';
+import { setAlert, setLoading } from '../../../redux/commonReducers/commonReducers';
 
-const CommentSection = ({ ticketId }) => {
+const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
     const [comments, setComments] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [commentType, setCommentType] = useState(1); // Default: Open
     const currentUser = getUserDetails();
 
@@ -32,6 +33,7 @@ const CommentSection = ({ ticketId }) => {
     }, []);
 
     const handleAddComment = async (data) => {
+        setLoading(true)
         const payload = {
             ticket_id: ticketId,
             comment: data.comment,
@@ -43,10 +45,12 @@ const CommentSection = ({ ticketId }) => {
         // The Editor handles redirection/refresh if needed, or we refresh after comment created but before attachments?
         // Actually, let's just return the response so the editor can continue with attachments.
         // We will refresh the list after everything is done.
+        setLoading(false)
         return res.result;
     };
 
     const handleReply = async (parentId, data) => {
+        setLoading(true)
         const payload = {
             ticket_id: ticketId,
             comment: data.comment,
@@ -55,6 +59,7 @@ const CommentSection = ({ ticketId }) => {
             parent_comment_id: parentId
         };
         const res = await addTicketComment(payload);
+        setLoading(false)
         return res.result;
     };
 
@@ -120,6 +125,7 @@ const CommentSection = ({ ticketId }) => {
                         }}
                         placeholder="Add a comment or share an update..."
                         submitText="Save"
+                        isSubmitting={loading}
                     />
                 </div>
                 {
@@ -145,4 +151,38 @@ const CommentSection = ({ ticketId }) => {
     );
 };
 
-export default CommentSection;
+const mapStateToProps = (state) => ({
+    loading: state.common.loading
+});
+
+const mapDispatchToProps = {
+    setAlert,
+    setLoading
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(CommentSection);
+
+
+// Remove handleAddComment and handleReply from 
+
+// CommentSection.jsx
+// and add into 
+
+// CommentEditor.jsx
+// and 
+
+// CommentItem.jsx
+//  with proper error handling and loading using 
+
+// commonReducers.jsx
+
+// const mapStateToProps = (state) => ({
+//     loading: state.common.loading
+// });
+
+// const mapDispatchToProps = {
+//     setAlert,
+//     setLoading
+// };
+
+// export default connect(mapStateToProps, mapDispatchToProps)(CommentSection);

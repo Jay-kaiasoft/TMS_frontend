@@ -6,7 +6,7 @@ import IconButton from '@mui/material/IconButton';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 
-const CustomInput = ({ name, control, label, type = 'text', rules, ...props }) => {
+const CustomInput = ({ name, control, label, type = 'text', rules, onChange: customOnChange, ...props }) => {
     const [showPassword, setShowPassword] = useState(false);
 
     const handleClickShowPassword = () => setShowPassword((show) => !show);
@@ -22,6 +22,13 @@ const CustomInput = ({ name, control, label, type = 'text', rules, ...props }) =
                 <TextField
                     size='small'
                     {...field}
+                    onChange={(e) => {
+                        if (customOnChange) {
+                            customOnChange(e, field.onChange);
+                        } else {
+                            field.onChange(e);
+                        }
+                    }}
                     {...props}
                     label={label}
                     type={inputType}

@@ -2,11 +2,12 @@ import React, { useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import RichTextEditor from '../RichTextEditor';
 import DragDropAttachmentUpload from '../DragDropAttachmentUpload';
-import { Button, CircularProgress } from '@mui/material';
+import { Button } from '@mui/material';
 import { uploadCommentAttachment } from '../../../services/ticketCommentService';
 import CustomButton from '../CustomButton';
 import { COMMENT_TYPES } from '../../../utils/constants';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { setAlert } from '../../../redux/commonReducers/commonReducers';
 
 const CommentEditor = ({
     onSubmit,
@@ -18,8 +19,10 @@ const CommentEditor = ({
     cancelText = 'Cancel',
     submitText = 'Save',
     onCancel,
-    isSubmitting: externalLoading = false,
-    placeholder = 'Add a comment...'
+    placeholder = 'Add a comment...',
+    isSubmitting = false,
+    loading,
+    setAlert
 }) => {
     const { control, handleSubmit, reset, watch, setValue } = useForm({
         defaultValues: {
@@ -40,6 +43,7 @@ const CommentEditor = ({
 
         try {
             // First submit the comment metadata to get a comment ID (handled by parent)
+            console.log("data", data)
             const commentRes = await onSubmit(data);
 
             if (commentRes && commentRes.id) {
@@ -50,6 +54,12 @@ const CommentEditor = ({
                 }
                 setIsUploadingFiles(false);
                 reset();
+            } else {
+                setAlert({
+                    open: true,
+                    type: 'error',
+                    message: 'Failed to submit comment'
+                })
             }
         } catch (err) {
             console.error("Failed to submit comment", err);
@@ -101,9 +111,9 @@ const CommentEditor = ({
 
             <div className="flex gap-3 items-center">
                 <CustomButton
-                    loading={externalLoading || isUploadingFiles}
+                    loading={isUploadingFiles || loading}
                     onClick={onSubmit}
-                    disabled={!watch("comment") || externalLoading || isUploadingFiles}
+                    disabled={!watch("comment") || isUploadingFiles || loading}
                     type="submit"
                 >
                     {submitText}
@@ -126,4 +136,12 @@ const CommentEditor = ({
     );
 };
 
-export default CommentEditor;
+const mapStateToProps = (state) => ({
+    loading: state.common.loading
+});
+
+const mapDispatchToProps = {
+    setAlert,
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(CommentEditor);
