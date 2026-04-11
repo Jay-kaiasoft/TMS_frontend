@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Select, MenuItem, FormControl, InputLabel, Button, CircularProgress, Divider } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faComments, faSync } from '@fortawesome/free-solid-svg-icons';
-import { getTicketComments, addTicketComment } from '../../../services/ticketCommentService';
+import { getTicketComments } from '../../../services/ticketCommentService';
 import CommentItem from './CommentItem';
 import CommentEditor from './CommentEditor';
 import { getUserDetails } from '../../../utils/getUserDetails';
@@ -32,36 +32,7 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
         fetchComments();
     }, []);
 
-    const handleAddComment = async (data) => {
-        setLoading(true)
-        const payload = {
-            ticket_id: ticketId,
-            comment: data.comment,
-            comment_type_id: commentType,
-            parent_comment_id: null
-        };
-        const res = await addTicketComment(payload);
-        // We don't call fetchComments here yet because file uploads might still be happening in the editor.
-        // The Editor handles redirection/refresh if needed, or we refresh after comment created but before attachments?
-        // Actually, let's just return the response so the editor can continue with attachments.
-        // We will refresh the list after everything is done.
-        setLoading(false)
-        return res.result;
-    };
 
-    const handleReply = async (parentId, data) => {
-        setLoading(true)
-        const payload = {
-            ticket_id: ticketId,
-            comment: data.comment,
-            comment_type_id: commentType, // Replies usually inherit parent type or just follow current selection? 
-            // Usually users want same type as parent.
-            parent_comment_id: parentId
-        };
-        const res = await addTicketComment(payload);
-        setLoading(false)
-        return res.result;
-    };
 
 
     if (!ticketId) {
@@ -118,14 +89,11 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
                     </div>
 
                     <CommentEditor
-                        onSubmit={async (data) => {
-                            const res = await handleAddComment(data);
-                            fetchComments();
-                            return res;
-                        }}
+                        ticketId={ticketId}
+                        initialVisibility={commentType}
+                        onSuccess={fetchComments}
                         placeholder="Add a comment or share an update..."
                         submitText="Save"
-                        isSubmitting={loading}
                     />
                 </div>
                 {
@@ -137,11 +105,6 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
                                 ticketId={ticketId}
                                 currentUser={currentUser}
                                 onCommentUpdated={fetchComments}
-                                onReply={async (parentId, data) => {
-                                    const res = await handleReply(parentId, data);
-                                    fetchComments(); // Refresh for replies
-                                    return res;
-                                }}
                             />
                         ))}
                     </div>
@@ -161,28 +124,3 @@ const mapDispatchToProps = {
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(CommentSection);
-
-
-// Remove handleAddComment and handleReply from 
-
-// CommentSection.jsx
-// and add into 
-
-// CommentEditor.jsx
-// and 
-
-// CommentItem.jsx
-//  with proper error handling and loading using 
-
-// commonReducers.jsx
-
-// const mapStateToProps = (state) => ({
-//     loading: state.common.loading
-// });
-
-// const mapDispatchToProps = {
-//     setAlert,
-//     setLoading
-// };
-
-// export default connect(mapStateToProps, mapDispatchToProps)(CommentSection);

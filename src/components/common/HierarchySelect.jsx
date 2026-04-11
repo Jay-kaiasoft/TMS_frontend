@@ -216,7 +216,7 @@ const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags
                                     variant="outlined"
                                     size="small"
                                     error={!!error}
-                                    helperText={error ? error.message : null}
+                                // helperText={error ? error.message : null}
                                 />
                             )}
                             renderOption={(props, option) => {

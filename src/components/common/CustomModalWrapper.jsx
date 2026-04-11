@@ -2,6 +2,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton } from '@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faSave } from '@fortawesome/free-solid-svg-icons';
 import CustomButton from './CustomButton';
+import { connect } from 'react-redux';
 
 const CustomModalWrapper = ({
     open,
@@ -15,11 +16,12 @@ const CustomModalWrapper = ({
     cancelText = 'Cancel',
     showFooter = true,
     headerExtra = null,
+    loading
 }) => {
     return (
         <Dialog
             open={open}
-            onClose={() => !isSubmitting && onClose()}
+            // onClose={() => !isSubmitting && onClose()}
             maxWidth={maxWidth}
             fullWidth
             PaperProps={{
@@ -40,7 +42,7 @@ const CustomModalWrapper = ({
                     {headerExtra}
                     <IconButton
                         onClick={onClose}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || loading}
                         size="small"
                     >
                         <FontAwesomeIcon icon={faTimes} className="text-[#172B4D] text-lg font-bold" />
@@ -58,7 +60,7 @@ const CustomModalWrapper = ({
                         loading={isSubmitting}
                         startIcon={!isSubmitting && <FontAwesomeIcon icon={faSave} />}
                         onClick={onSubmit}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || loading}
                         type="submit"
                     >
                         {submitText}
@@ -69,4 +71,8 @@ const CustomModalWrapper = ({
     );
 };
 
-export default CustomModalWrapper;
+const mapStateToProps = (state) => ({
+    loading: state.common.loading
+});
+
+export default connect(mapStateToProps, null)(CustomModalWrapper);

@@ -8,10 +8,12 @@ import PermissionWrapper from '../../permissionWrapper/PermissionWrapper';
 import CommentEditor from './CommentEditor';
 import { deleteTicketComment, updateTicketComment, deleteCommentAttachment } from '../../../services/ticketCommentService';
 import ConfirmDialog from '../ConfirmDialog';
+import { connect } from 'react-redux';
+import { setAlert, setLoading } from '../../../redux/commonReducers/commonReducers';
 
 dayjs.extend(relativeTime);
 
-const CommentItem = ({ comment, ticketId, onCommentUpdated, onReply, currentUser }) => {
+const CommentItem = ({ comment, ticketId, onCommentUpdated, currentUser, setLoading, setAlert, loading }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [isReplying, setIsReplying] = useState(false);
     const [anchorEl, setAnchorEl] = useState(null);
@@ -59,11 +61,7 @@ const CommentItem = ({ comment, ticketId, onCommentUpdated, onReply, currentUser
         }
     };
 
-    const handleReplySubmit = async (data) => {
-        const res = await onReply(comment.id, data);
-        setIsReplying(false);
-        return res;
-    };
+    // handleReplySubmit removed as CommentEditor now handles it via ticketId/parentId props
 
     const getAbsoluteUrl = (url) => {
         return url.startsWith('http') ? url : `${import.meta.env.REACT_APP_MAIN_SITE_URL || ''}${url}`;
@@ -173,7 +171,12 @@ const CommentItem = ({ comment, ticketId, onCommentUpdated, onReply, currentUser
                 {isReplying && (
                     <div className="mt-4 pl-4 border-l-2 border-[#DFE1E6]">
                         <CommentEditor
-                            onSubmit={handleReplySubmit}
+                            ticketId={ticketId}
+                            parentId={comment.id}
+                            onSuccess={() => {
+                                setIsReplying(false);
+                                onCommentUpdated();
+                            }}
                             onCancel={() => setIsReplying(false)}
                             placeholder={`Reply to ${comment.created_by_name}...`}
                             submitText="Reply"
@@ -190,8 +193,9 @@ const CommentItem = ({ comment, ticketId, onCommentUpdated, onReply, currentUser
                                 comment={reply}
                                 ticketId={ticketId}
                                 onCommentUpdated={onCommentUpdated}
-                                onReply={onReply}
                                 currentUser={currentUser}
+                                setLoading={setLoading}
+                                setAlert={setAlert}
                             />
                         ))}
                     </div>
@@ -211,4 +215,13 @@ const CommentItem = ({ comment, ticketId, onCommentUpdated, onReply, currentUser
     );
 };
 
-export default CommentItem;
+const mapStateToProps = (state) => ({
+    loading: state.common.loading
+});
+
+const mapDispatchToProps = {
+    setAlert,
+    setLoading
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(CommentItem);

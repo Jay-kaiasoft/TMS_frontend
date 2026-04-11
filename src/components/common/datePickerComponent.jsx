@@ -32,7 +32,7 @@ const DatePickerComponent = ({
                             textField: {
                                 fullWidth: true,
                                 error: !!error,
-                                helperText: error ? error.message : null,
+                                // helperText: error ? error.message : null,
                                 size: "small",
                                 sx: { backgroundColor: 'white' },
                                 InputLabelProps: { shrink: true }

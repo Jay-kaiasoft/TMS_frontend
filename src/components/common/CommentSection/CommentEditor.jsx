@@ -2,12 +2,12 @@ import React, { useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import RichTextEditor from '../RichTextEditor';
 import DragDropAttachmentUpload from '../DragDropAttachmentUpload';
-import { Button } from '@mui/material';
-import { uploadCommentAttachment } from '../../../services/ticketCommentService';
+import { Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { setAlert, setLoading } from '../../../redux/commonReducers/commonReducers';
+import { connect } from 'react-redux';
+import { addTicketComment, uploadCommentAttachment } from '../../../services/ticketCommentService';
 import CustomButton from '../CustomButton';
 import { COMMENT_TYPES } from '../../../utils/constants';
-import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
-import { setAlert } from '../../../redux/commonReducers/commonReducers';
 
 const CommentEditor = ({
     onSubmit,
@@ -22,7 +22,11 @@ const CommentEditor = ({
     placeholder = 'Add a comment...',
     isSubmitting = false,
     loading,
-    setAlert
+    setAlert,
+    setLoading,
+    ticketId,
+    parentId,
+    onSuccess
 }) => {
     const { control, handleSubmit, reset, watch, setValue } = useForm({
         defaultValues: {
@@ -30,6 +34,10 @@ const CommentEditor = ({
             comment_type_id: initialVisibility
         }
     });
+
+    React.useEffect(() => {
+        setValue('comment_type_id', initialVisibility);
+    }, [initialVisibility, setValue]);
 
     const commentType = watch('comment_type_id');
 
@@ -42,9 +50,23 @@ const CommentEditor = ({
         }
 
         try {
-            // First submit the comment metadata to get a comment ID (handled by parent)
-            console.log("data", data)
-            const commentRes = await onSubmit(data);
+            setLoading(true);
+            let commentRes;
+
+            if (onSubmit) {
+                // Use parent provided onSubmit (could be for editing or custom logic)
+                commentRes = await onSubmit(data);
+            } else if (ticketId) {
+                // Handle creation directly
+                const payload = {
+                    ticket_id: ticketId,
+                    comment: data.comment,
+                    comment_type_id: data.comment_type_id,
+                    parent_comment_id: parentId || null
+                };
+                const res = await addTicketComment(payload);
+                commentRes = res.result;
+            }
 
             if (commentRes && commentRes.id) {
                 // Now upload pending files if any
@@ -54,15 +76,23 @@ const CommentEditor = ({
                 }
                 setIsUploadingFiles(false);
                 reset();
+                if (onSuccess) onSuccess(commentRes);
             } else {
                 setAlert({
                     open: true,
                     type: 'error',
                     message: 'Failed to submit comment'
-                })
+                });
             }
         } catch (err) {
             console.error("Failed to submit comment", err);
+            setAlert({
+                open: true,
+                type: 'error',
+                message: err.response?.data?.message || 'Failed to submit comment'
+            });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -142,6 +172,7 @@ const mapStateToProps = (state) => ({
 
 const mapDispatchToProps = {
     setAlert,
+    setLoading
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(CommentEditor);
