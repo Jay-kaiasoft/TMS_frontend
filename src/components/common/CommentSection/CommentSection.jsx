@@ -6,14 +6,15 @@ import { getTicketComments } from '../../../services/ticketCommentService';
 import CommentItem from './CommentItem';
 import CommentEditor from './CommentEditor';
 import { getUserDetails } from '../../../utils/getUserDetails';
-import { COMMENT_TYPES } from '../../../utils/constants';
 import { connect } from 'react-redux';
 import { setAlert, setLoading } from '../../../redux/commonReducers/commonReducers';
+import { getAllowedCommentTypes } from '../../../services/commentService';
 
 const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
     const [comments, setComments] = useState([]);
-    const [commentType, setCommentType] = useState(1); // Default: Open
+    const [commentType, setCommentType] = useState(null); // Default: Open
     const currentUser = getUserDetails();
+    const [commentTypes, setCommentTypes] = useState(getAllowedCommentTypes())
 
     const fetchComments = async () => {
         if (!ticketId) return;
@@ -29,6 +30,7 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
     }
 
     useEffect(() => {
+        setCommentType(currentUser.rolename === "Developer" ? 6 : currentUser.rolename === "Customer" ? 5 : 1)
         fetchComments();
     }, []);
 
@@ -78,7 +80,7 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading }) => {
                                 label="Visibility"
                                 onChange={(e) => setCommentType(e.target.value)}
                             >
-                                {COMMENT_TYPES.map(type => (
+                                {commentTypes?.map(type => (
                                     <MenuItem key={type.id} value={type.id}>
                                         {type.name}
                                     </MenuItem>

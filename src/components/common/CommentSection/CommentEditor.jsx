@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import RichTextEditor from '../RichTextEditor';
 import DragDropAttachmentUpload from '../DragDropAttachmentUpload';
@@ -7,7 +7,7 @@ import { setAlert, setLoading } from '../../../redux/commonReducers/commonReduce
 import { connect } from 'react-redux';
 import { addTicketComment, uploadCommentAttachment } from '../../../services/ticketCommentService';
 import CustomButton from '../CustomButton';
-import { COMMENT_TYPES } from '../../../utils/constants';
+import { getAllowedCommentTypes } from '../../../services/commentService';
 
 const CommentEditor = ({
     onSubmit,
@@ -28,16 +28,13 @@ const CommentEditor = ({
     parentId,
     onSuccess
 }) => {
+    const [commentTypes, setCommentTypes] = useState(getAllowedCommentTypes())
     const { control, handleSubmit, reset, watch, setValue } = useForm({
         defaultValues: {
             comment: initialValue,
             comment_type_id: initialVisibility
         }
     });
-
-    React.useEffect(() => {
-        setValue('comment_type_id', initialVisibility);
-    }, [initialVisibility, setValue]);
 
     const commentType = watch('comment_type_id');
 
@@ -96,6 +93,10 @@ const CommentEditor = ({
         }
     };
 
+    useEffect(() => {
+        setValue('comment_type_id', initialValue);
+    }, [initialVisibility, setValue]);
+
     return (
         <form onSubmit={handleSubmit(handleFormSubmit)} className="flex flex-col gap-3 w-full animate-fade-in">
             <div className="bg-white overflow-hidden transition-all">
@@ -110,7 +111,7 @@ const CommentEditor = ({
                                 onChange={(e) => setValue('comment_type_id', e.target.value)}
                                 sx={{ height: 32, fontSize: '0.8rem' }}
                             >
-                                {COMMENT_TYPES.map(type => (
+                                {commentTypes?.map(type => (
                                     <MenuItem key={type.id} value={type.id} sx={{ fontSize: '0.8rem' }}>
                                         {type.name}
                                     </MenuItem>
