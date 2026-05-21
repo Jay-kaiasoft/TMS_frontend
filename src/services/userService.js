@@ -91,3 +91,28 @@ export const getAllAdmins = async () => {
         throw error;
     }
 };
+
+export const filterUsers = async (roleIds) => {
+    try {
+        let url = `${userURL}/filter`;
+        if (roleIds && roleIds.length > 0) {
+            const queryParams = roleIds.map(id => `role_ids=${id}`).join('&');
+            url += `?${queryParams}`;
+        }
+        const response = await axiosInterceptor.get(url);
+        return response.data;
+    } catch (error) {
+        console.error("Error filtering users:", error);
+        throw error;
+    }
+};
+
+export const sendUserCredentials = async (id) => {
+    try {
+        const response = await axiosInterceptor.post(`${userURL}/${id}/send-credentials`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error sending credentials to user ${id}:`, error);
+        throw error;
+    }
+};

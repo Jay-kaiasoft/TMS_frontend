@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { IconButton, Chip, CircularProgress } from '@mui/material';
+import { IconButton, Chip, CircularProgress, Tooltip } from '@mui/material';
 import CustomButton from '../../components/common/CustomButton';
 import UserFormDialog from './UserFormDialog';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faEnvelope, faPhone, faMapMarkerAlt, faUserShield } from '@fortawesome/free-solid-svg-icons';
-import { getAllUsers, deleteUser } from '../../services/userService';
+import { faPlus, faEdit, faTrash, faEnvelope, faPhone, faMapMarkerAlt, faUserShield, faKey } from '@fortawesome/free-solid-svg-icons';
+import { getAllUsers, deleteUser, filterUsers, sendUserCredentials } from '../../services/userService';
+import { getAllRoles } from '../../services/roleService';
+import CustomSelect from '../../components/common/CustomSelect';
+import { useForm } from 'react-hook-form';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import { connect } from 'react-redux';
@@ -12,6 +15,7 @@ import { setAlert, setLoading } from '../../redux/commonReducers/commonReducers'
 
 const ManageUsers = ({ setAlert, setLoading, loading }) => {
     const [users, setUsers] = useState([]);
+    const [dbRoles, setDbRoles] = useState([]);
 
     // Modal State
     const [open, setOpen] = useState(false);
@@ -25,13 +29,29 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
         1: { name: 'Administrator', color: 'error' },
         2: { name: 'Developer', color: 'info' },
         3: { name: 'Customer', color: 'default' },
+        4: { name: 'Manager', color: 'success' },
         5: { name: 'Manager', color: 'success' }
     };
+
+    const { control, watch } = useForm({
+        defaultValues: {
+            role_ids: []
+        }
+    });
+
+    const selectedRoleIds = watch("role_ids") || [];
+    const selectedRoleIdsStr = JSON.stringify(selectedRoleIds);
 
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const res = await getAllUsers();
+            const currentSelectedRoles = watch("role_ids") || [];
+            let res;
+            if (currentSelectedRoles.length > 0) {
+                res = await filterUsers(currentSelectedRoles);
+            } else {
+                res = await getAllUsers();
+            }
             setUsers(res.result || []);
         } catch (error) {
             setAlert({
@@ -44,9 +64,24 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
         }
     };
 
+    const fetchDbRoles = async () => {
+        try {
+            const res = await getAllRoles();
+            const data = res.result?.map((row) => ({ label: row.name, value: row.id })) || [];
+            setDbRoles(data);
+        } catch (err) {
+            console.error(err);
+            setAlert({ open: true, message: "Failed to load roles.", type: "error" });
+        }
+    };
+
+    useEffect(() => {
+        fetchDbRoles();
+    }, []);
+
     useEffect(() => {
         fetchUsers();
-    }, []);
+    }, [selectedRoleIdsStr]);
 
     const handleOpen = (user = null) => {
         if (user) {
@@ -83,23 +118,56 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
         }
     };
 
+    const handleSendCredentials = async (user) => {
+        setLoading(true);
+        try {
+            await sendUserCredentials(user.id);
+            setAlert({
+                message: `Credentials sent successfully to ${user.first_name} (${user.email})`,
+                type: "success",
+                open: true
+            });
+            fetchUsers();
+        } catch (error) {
+            setAlert({
+                message: error.message || "Failed to send credentials",
+                type: "error",
+                open: true
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-4 max-w-7xl mx-auto">
             {/* Toolbar */}
-            <div className="flex justify-end">
-                <PermissionWrapper
-                    functionalityName="manage user"
-                    moduleName="users"
-                    actionId={1}
-                    component={
-                        <CustomButton
-                            startIcon={<FontAwesomeIcon icon={faPlus} />}
-                            onClick={() => handleOpen()}
-                        >
-                            Add User
-                        </CustomButton>
-                    }
-                />
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 bg-white p-4 border border-[#DFE1E6] rounded-xl shadow-sm">
+                <div className="w-full sm:w-72">
+                    <CustomSelect
+                        name="role_ids"
+                        control={control}
+                        label="Filter by Roles"
+                        options={dbRoles}
+                        multiple={true}
+                        withCheckbox={true}
+                    />
+                </div>
+                <div className="sm:pt-1">
+                    <PermissionWrapper
+                        functionalityName="manage user"
+                        moduleName="users"
+                        actionId={1}
+                        component={
+                            <CustomButton
+                                startIcon={<FontAwesomeIcon icon={faPlus} />}
+                                onClick={() => handleOpen()}
+                            >
+                                Add User
+                            </CustomButton>
+                        }
+                    />
+                </div>
             </div>
 
             <div className="bg-white border border-[#DFE1E6] rounded-xl shadow-sm overflow-hidden">
@@ -166,6 +234,22 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div>
+                                            <PermissionWrapper
+                                                functionalityName="manage user"
+                                                moduleName="users"
+                                                actionId={2}
+                                                component={
+                                                    <Tooltip title="Send Credentials">
+                                                        <IconButton
+                                                            onClick={() => handleSendCredentials(user)}
+                                                            size="small"
+                                                            sx={{ color: '#FF9800', ml: 1, '&:hover': { backgroundColor: '#FFF3E0' } }}
+                                                        >
+                                                            <FontAwesomeIcon icon={faKey} size="sm" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                }
+                                            />
                                             <PermissionWrapper
                                                 functionalityName="manage user"
                                                 moduleName="users"
