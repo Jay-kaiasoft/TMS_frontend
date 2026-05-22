@@ -9,6 +9,14 @@ import { addTicketComment, uploadCommentAttachment } from '../../../services/tic
 import CustomButton from '../CustomButton';
 import { getAllowedCommentTypes } from '../../../services/commentService';
 
+const isHtmlEmpty = (html) => {
+    if (!html) return true;
+    const hasMedia = /<img[^>]*>|<iframe[^>]*>/i.test(html);
+    if (hasMedia) return false;
+    const cleanText = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+    return cleanText === '';
+};
+
 const CommentEditor = ({
     onSubmit,
     initialValue = '',
@@ -42,7 +50,8 @@ const CommentEditor = ({
     const [isUploadingFiles, setIsUploadingFiles] = useState(false);
 
     const handleFormSubmit = async (data) => {
-        if (!data.comment && (!attachmentRef.current || attachmentRef.current.getPendingCount() === 0)) {
+        console.log(data)
+        if (isHtmlEmpty(data.comment) && (!attachmentRef.current || attachmentRef.current.getPendingCount() === 0)) {
               setAlert({
                 open: true,
                 type: 'error',
@@ -158,7 +167,7 @@ const CommentEditor = ({
             <div className="flex gap-3 items-center">
                 <CustomButton
                     loading={isUploadingFiles || loading}
-                    disabled={!watch("comment") || isUploadingFiles || loading}
+                    disabled={isHtmlEmpty(watch("comment")) || isUploadingFiles || loading}
                     type="submit"
                 >
                     {submitText}

@@ -37,7 +37,38 @@ body,
   }
 }
 
-.fr-toolbar .fr-btn-grp {
-  margin-left: 1px !important;
-  margin-right: 1px !important;
+/* Custom styling for integrated look */
+.editor-wrapper-custom {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
 }
+
+.editor-toolbar-custom {
+  margin-bottom: 0 !important;
+  border: none !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  padding: 6px !important;
+  background: #f9fafb !important;
+}
+
+.editor-main-custom {
+  min-height: 150px !important;
+  padding: 12px !important;
+  overflow-y: auto !important;
+}
+
+/* Make toolbar icons smaller */
+.rdw-option-wrapper {
+  min-width: 24px !important;
+  height: 24px !important;
+  padding: 2px !important;
+}
+
+.public-DraftStyleDefault-block {
+  margin: 0 !important;
+}
+  
