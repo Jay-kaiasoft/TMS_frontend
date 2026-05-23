@@ -3,17 +3,17 @@ import { useForm } from 'react-hook-form';
 import { connect } from 'react-redux';
 import { CircularProgress, Stepper, Step, StepLabel, Tooltip, IconButton, Chip } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-    faPlus, 
-    faEdit, 
-    faTrash, 
-    faEnvelope, 
-    faPhone, 
-    faMapMarkerAlt, 
-    faUserShield, 
-    faKey, 
-    faChevronLeft, 
-    faChevronRight, 
+import {
+    faPlus,
+    faEdit,
+    faTrash,
+    faEnvelope,
+    faPhone,
+    faMapMarkerAlt,
+    faUserShield,
+    faKey,
+    faChevronLeft,
+    faChevronRight,
     faCheck,
     faBuilding
 } from '@fortawesome/free-solid-svg-icons';
@@ -27,6 +27,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { getCompanyById, createCompany, updateCompany } from '../../services/companyService';
 import { getAllUsers, deleteUser, sendUserCredentials } from '../../services/userService';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
+import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 
 // Lazy-load UserFormDialog to break the circular dependency
 const UserFormDialog = lazy(() => import('../Users/UserFormDialog'));
@@ -192,15 +193,20 @@ const CompanyFormDialog = ({
             }
 
             if (localCompanyId) {
-                await updateCompany(localCompanyId, formData);
-                setAlert({ open: true, message: "Company updated successfully!", type: "success" });
+                const res = await updateCompany(localCompanyId, formData);
+                if (res.status !== 200) {
+                    setAlert({ open: true, message: "Failed to update company.", type: "error" });
+                    return;
+                }
             } else {
                 const res = await createCompany(formData);
                 const newCompanyId = res.result?.id;
+                if (!newCompanyId) {
+                    setAlert({ open: true, message: "Failed to create company.", type: "error" });
+                    return;
+                }
                 setLocalCompanyId(newCompanyId);
-                setAlert({ open: true, message: "Company created successfully!", type: "success" });
             }
-
             setActiveStep(1);
         } catch (err) {
             const errorMsg = err?.response?.data?.detail || err?.message || "Failed to save company details.";
@@ -365,13 +371,19 @@ const CompanyFormDialog = ({
                 ) : (
                     <div className="flex flex-col gap-4">
                         <div className="flex justify-end items-center">
-                            {/* <h3 className="font-semibold text-lg text-[#172B4D]">Contact details for company</h3> */}
-                            <CustomButton
-                                startIcon={<FontAwesomeIcon icon={faPlus} />}
-                                onClick={() => handleOpenUserDialog()}
-                            >
-                                Add User
-                            </CustomButton>
+                            <PermissionWrapper
+                                functionalityName="manage user"
+                                moduleName="users"
+                                actionId={1}
+                                component={
+                                    <CustomButton
+                                        startIcon={<FontAwesomeIcon icon={faPlus} />}
+                                        onClick={() => handleOpenUserDialog()}
+                                    >
+                                        Add User
+                                    </CustomButton>
+                                }
+                            />
                         </div>
 
                         <div className="bg-white border border-[#DFE1E6] rounded-xl shadow-sm overflow-hidden">
@@ -447,30 +459,53 @@ const CompanyFormDialog = ({
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <div className="flex justify-end gap-1">
-                                                        <Tooltip title="Send Credentials">
-                                                            <IconButton
-                                                                onClick={() => handleSendUserCredentials(user)}
-                                                                size="small"
-                                                                sx={{ color: '#FF9800', '&:hover': { backgroundColor: '#FFF3E0' } }}
-                                                            >
-                                                                <FontAwesomeIcon icon={faKey} size="sm" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <IconButton 
-                                                            onClick={() => handleOpenUserDialog(user.id)} 
-                                                            size="small" 
-                                                            sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}
-                                                        >
-                                                            <FontAwesomeIcon icon={faEdit} size="sm" />
-                                                        </IconButton>
-                                                        <IconButton 
-                                                            onClick={() => confirmDeleteUser(user)} 
-                                                            size="small" 
-                                                            sx={{ color: '#DE350B', '&:hover': { backgroundColor: '#FFEBE6' } }}
-                                                        >
-                                                            <FontAwesomeIcon icon={faTrash} size="sm" />
-                                                        </IconButton>
+                                                    <div className="flex justify-end gap-1">                                                        
+                                                        <PermissionWrapper
+                                                            functionalityName="manage user"
+                                                            moduleName="users"
+                                                            actionId={2}
+                                                            component={
+                                                                <Tooltip title="Send Credentials">
+                                                                    <IconButton
+                                                                        onClick={() => handleSendUserCredentials(user)}
+                                                                        size="small"
+                                                                        sx={{ color: '#FF9800', '&:hover': { backgroundColor: '#FFF3E0' } }}
+                                                                    >
+                                                                        <FontAwesomeIcon icon={faKey} size="sm" />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            }
+                                                        />
+
+                                                        <PermissionWrapper
+                                                            functionalityName="manage user"
+                                                            moduleName="users"
+                                                            actionId={2}
+                                                            component={
+                                                                <IconButton
+                                                                    onClick={() => handleOpenUserDialog(user.id)}
+                                                                    size="small"
+                                                                    sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}
+                                                                >
+                                                                    <FontAwesomeIcon icon={faEdit} size="sm" />
+                                                                </IconButton>
+                                                            }
+                                                        />
+
+                                                        <PermissionWrapper
+                                                            functionalityName="manage user"
+                                                            moduleName="users"
+                                                            actionId={3}
+                                                            component={
+                                                                <IconButton
+                                                                    onClick={() => confirmDeleteUser(user)}
+                                                                    size="small"
+                                                                    sx={{ color: '#DE350B', '&:hover': { backgroundColor: '#FFEBE6' } }}
+                                                                >
+                                                                    <FontAwesomeIcon icon={faTrash} size="sm" />
+                                                                </IconButton>
+                                                            }
+                                                        />
                                                     </div>
                                                 </td>
                                             </tr>
@@ -549,7 +584,7 @@ const CompanyFormDialog = ({
                 onClose={() => setDeleteUserConfirmOpen(false)}
                 onConfirm={handleDeleteUser}
                 title="Delete User?"
-                description={`Are you sure you want to permanently delete the user ${userToDelete?.first_name} ${userToDelete?.last_name}? This action cannot be undone.`}
+                description={`Are you sure you want to permanently delete the user ${userToDelete?.first_name} ${userToDelete?.last_name}? `}
                 confirmText="Delete User"
                 isDestructive={true}
             />

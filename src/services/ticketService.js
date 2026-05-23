@@ -79,3 +79,26 @@ export const updateTicketTitle = async (id, title) => {
         throw error;
     }
 };
+
+export const updateAssigneeSendMail = async (ticketId, userId, sendMail) => {
+    try {
+        const response = await axiosInterceptor.patch(`/tickets/${ticketId}/assignee/send-mail`, {
+            user_id: userId,
+            send_mail: sendMail
+        });
+        return response.data;
+    } catch (error) {
+        console.error(`Error updating assignee send mail settings for ticket ${ticketId}:`, error);
+        throw error;
+    }
+};
+
+export const getTicketsByProjectId = async (projectId) => {
+    try {
+        const response = await axiosInterceptor.get(`/tickets/project/${projectId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching tickets for project ${projectId}:`, error);
+        throw error;
+    }
+};

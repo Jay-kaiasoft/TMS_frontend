@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Draggable } from '@hello-pangea/dnd';
 import { Box, Typography, IconButton, Tooltip, Avatar, AvatarGroup } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faExclamationTriangle, faCalendarAlt, faCheckSquare, faEllipsisH, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faExclamationTriangle, faCalendarAlt, faCheckSquare, faTrash } from '@fortawesome/free-solid-svg-icons';
 import dayjs from 'dayjs';
 import InlineEdit from '../../components/common/InlineEdit';
 import TicketFormModal from './TicketFormModal';
@@ -15,7 +15,7 @@ import PermissionWrapper from '../../components/permissionWrapper/PermissionWrap
 import { getUserDetails } from '../../utils/getUserDetails';
 
 const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) => {
-    const userData = getUserDetails()
+    const userData = getUserDetails();
     const navigate = useNavigate();
     const [isEditing, setIsEditing] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -23,7 +23,11 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
     const [editingTicketId, setEditingTicketId] = useState(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState({ open: false, ticket: null });
 
-    const isOverdue = ticket.due_date && dayjs(ticket.due_date).isBefore(dayjs(), 'day') && ticket.status_name?.toLowerCase() !== 'done';
+    // Safe due date validation
+    const isValidDueDate = ticket.due_date && dayjs(ticket.due_date).isValid();
+    const isOverdue = isValidDueDate && 
+        dayjs(ticket.due_date).isBefore(dayjs(), 'day') && 
+        ticket.status_name?.toLowerCase() !== 'done';
 
     const handleSaveTitle = (newTitle) => {
         onUpdateTitle(ticket.id, newTitle);
@@ -31,6 +35,7 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
     };
 
     const formatDate = (date) => {
+        if (!date || !dayjs(date).isValid()) return '';
         return dayjs(date).format('MMM D, YYYY');
     };
 
@@ -59,6 +64,7 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
             setAlert({ open: true, message: err.message || "Failed to delete ticket.", type: "error" });
         }
     };
+
     return (
         <>
             <Draggable draggableId={String(ticket.id)} index={index}>
@@ -71,15 +77,6 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                         onMouseLeave={() => setIsHovered(false)}
                         onClick={() => {
                             navigate(`/dashboard/manage-tickets/view/${ticket.id}`);
-                            // if (PermissionWrapper.hasPermission({
-                            //     functionalityName: "manage tickets",
-                            //     moduleName: "Tickets",
-                            //     actionId: 2
-                            // }) && ticket.created_by === userData.id) {
-                            //     handleOpen(ticket.id);
-                            // } else {
-                            //     navigate(`/dashboard/manage-tickets/view/${ticket.id}`);
-                            // }
                         }}
                         sx={{
                             backgroundColor: snapshot.isDragging ? '#f4f5f7' : 'white',
@@ -114,13 +111,19 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                             color: '#172B4D',
                                             fontSize: '14px',
                                             lineHeight: '20px',
-                                            pr: 3
+                                            pr: 3,
+                                            wordBreak: 'break-word',
+                                            flex: 1
                                         }}
                                     >
                                         {ticket.title}
                                     </Typography>
                                     {(isHovered && ticket.created_by === userData.id) && (
-                                        <Box sx={{ position: 'absolute', right: 8, top: 12, display: 'flex', gap: 0.5 }}>
+                                        <Box 
+                                            onClick={(e) => e.stopPropagation()}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            sx={{ position: 'absolute', right: 8, top: 12, display: 'flex', gap: 0.5 }}
+                                        >
                                             <PermissionWrapper
                                                 functionalityName="manage tickets"
                                                 moduleName="Tickets"
@@ -129,8 +132,7 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                                     <IconButton
                                                         size="small"
                                                         onClick={(e) => {
-                                                            // e.stopPropagation();
-                                                            // setIsEditing(true);
+                                                            e.stopPropagation();
                                                             navigate(`/dashboard/manage-tickets/view/${ticket.id}`);
                                                         }}
                                                         sx={{ padding: '4px', color: '#6B778C' }}
@@ -150,7 +152,7 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                                             e.stopPropagation();
                                                             openDeleteConfirm(ticket);
                                                         }}
-                                                        sx={{ padding: '4px', color: '#DE350B', }}
+                                                        sx={{ padding: '4px', color: '#DE350B' }}
                                                     >
                                                         <FontAwesomeIcon icon={faTrash} size="xs" />
                                                     </IconButton>
@@ -160,36 +162,47 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                     )}
                                 </Box>
 
-                                {/* Tags / Extra info like Projects can go here if needed */}
-                                {ticket.project_name && (
-                                    <Box sx={{ mb: 1.5 }}>
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#EBECF0] text-[#42526E] uppercase tracking-wider">
-                                            {ticket.project_name}
-                                        </span>
-                                    </Box>
-                                )}
-
-                                {/* Bottom row: Ticket ID and Due Date */}
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {/* Bottom row with ticket ID, due date, and assignees - now with flex wrap for better responsiveness */}
+                                <Box sx={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center', 
+                                    mt: 1,
+                                    flexWrap: 'wrap',
+                                    gap: 1,
+                                    rowGap: 1
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
                                         <FontAwesomeIcon icon={faCheckSquare} size="xs" color="#4C9AFF" />
                                         <Typography variant="caption" sx={{ color: '#6B778C', fontWeight: 600 }}>
                                             {ticket.ticket_no}
                                         </Typography>
                                     </Box>
 
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        {ticket.due_date && (
+                                    {/* Due date and assignees container with wrapping support */}
+                                    <Box sx={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: 1,
+                                        flexWrap: 'wrap',
+                                        justifyContent: 'flex-end',
+                                        flex: '1 1 auto',
+                                        minWidth: 0
+                                    }}>
+                                        {/* Due date display with validation and proper styling */}
+                                        {ticket.due_date && dayjs(ticket.due_date).isValid() && (
                                             <Box
                                                 sx={{
-                                                    display: 'flex',
+                                                    display: 'inline-flex',
                                                     alignItems: 'center',
                                                     gap: 0.5,
                                                     padding: '2px 6px',
                                                     borderRadius: '3px',
                                                     backgroundColor: isOverdue ? '#FFEBE6' : 'transparent',
                                                     color: isOverdue ? '#BF2600' : '#6B778C',
-                                                    border: isOverdue ? '1px solid #FF5630' : 'none'
+                                                    border: isOverdue ? '1px solid #FF5630' : 'none',
+                                                    whiteSpace: 'nowrap',
+                                                    flexShrink: 0
                                                 }}
                                             >
                                                 {isOverdue && <FontAwesomeIcon icon={faExclamationTriangle} size="xs" />}
@@ -199,9 +212,32 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                             </Box>
                                         )}
 
+                                        {/* Fallback when no due date exists (optional) */}
+                                        {(!ticket.due_date || !dayjs(ticket.due_date).isValid()) && (
+                                            <Box
+                                                sx={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 0.5,
+                                                    padding: '2px 6px',
+                                                    borderRadius: '3px',
+                                                    backgroundColor: '#F4F5F7',
+                                                    color: '#6B778C',
+                                                    whiteSpace: 'nowrap',
+                                                    flexShrink: 0
+                                                }}
+                                            >
+                                                <FontAwesomeIcon icon={faCalendarAlt} size="xs" />
+                                                <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '11px' }}>
+                                                    No due date
+                                                </Typography>
+                                            </Box>
+                                        )}
+
                                         {/* Assignees */}
                                         {ticket.assignees?.length > 0 && (
                                             <AvatarGroup max={2} sx={{
+                                                flexShrink: 0,
                                                 '& .MuiAvatar-root': {
                                                     width: 24,
                                                     height: 24,
@@ -220,13 +256,6 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                                     </Tooltip>
                                                 ))}
                                             </AvatarGroup>
-                                        )}
-                                        {(!ticket.assignees || ticket.assignees.length === 0) && (
-                                            <Avatar sx={{ width: 24, height: 24, bgcolor: '#f4f5f7' }}>
-                                                <Box sx={{ color: '#6B778C', fontSize: '12px' }}>
-                                                    <FontAwesomeIcon icon={faCalendarAlt} size="xs" />
-                                                </Box>
-                                            </Avatar>
                                         )}
                                     </Box>
                                 </Box>
@@ -249,13 +278,14 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                 onClose={() => setDeleteConfirmOpen({ open: false, ticket: null })}
                 onConfirm={handleDelete}
                 title="Delete Ticket"
-                description={`Are you sure you want to delete "${deleteConfirmOpen.ticket?.title}"? This action cannot be undone.`}
+                description={`Are you sure you want to delete "${deleteConfirmOpen.ticket?.title}"? `}
                 confirmText="Delete"
                 isDestructive={true}
             />
         </>
     );
 };
+
 const mapStateToProps = (state) => ({});
 
 const mapDispatchToProps = {

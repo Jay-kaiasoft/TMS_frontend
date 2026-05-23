@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { IconButton, Tooltip } from '@mui/material';
 import { connect } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faBuilding, faFolderPlus } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faBuilding, faFolderPlus, faUserPlus } from '@fortawesome/free-solid-svg-icons';
 import { getAllCompanies, deleteCompany } from '../../services/companyService';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
@@ -10,8 +11,10 @@ import CustomButton from '../../components/common/CustomButton';
 import CompanyFormDialog from './CompanyFormDialog';
 import ProjectFormDialog from '../Projects/ProjectFormDialog';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
+import { encryptData } from '../../utils/cryptoHelper';
 
 const ManageCompanies = ({ setAlert }) => {
+    const navigate = useNavigate()
     const [companies, setCompanies] = useState([]);
     const [actionLoading, setActionLoading] = useState(false);
 
@@ -89,6 +92,16 @@ const ManageCompanies = ({ setAlert }) => {
         return url.startsWith('http') ? url : `${import.meta.env.VITE_APP_MAIN_SITE_URL || ''}${url}`;
     };
 
+    const handleManageUsers = async (companyId) => {
+        try {
+            const encrypted = await encryptData(companyId.toString());
+            const urlSafeId = encodeURIComponent(encrypted);
+            navigate(`/dashboard/manage-user?companyId=${urlSafeId}`);
+        } catch (err) {
+            console.error("Error encrypting company ID:", err);
+        }
+    };
+
     return (
         <div className="space-y-4 max-w-7xl mx-auto">
             {/* Toolbar */}
@@ -138,7 +151,7 @@ const ManageCompanies = ({ setAlert }) => {
                                     <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">
                                         City
                                     </th>
-                                    <th scope="col" className="px-6 py-4 text-right text-xs font-bold text-[#8993A4] uppercase tracking-wider w-24">
+                                    <th scope="col" className="px-6 py-4 text-right text-xs font-bold text-[#8993A4] uppercase tracking-wider w-28">
                                         Actions
                                     </th>
                                 </tr>
@@ -174,12 +187,24 @@ const ManageCompanies = ({ setAlert }) => {
                                         <td className="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
                                             <div>
                                                 <PermissionWrapper
+                                                    functionalityName="manage user"
+                                                    moduleName="users"
+                                                    actionId={1}
+                                                    component={
+                                                        <Tooltip title="Manage Users">
+                                                            <IconButton onClick={() => handleManageUsers(company.id)} size="small" sx={{ color: '#6554C0', '&:hover': { backgroundColor: '#EAE6FF' }, mr: 1 }}>
+                                                                 <FontAwesomeIcon icon={faUserPlus} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    }
+                                                />
+                                                <PermissionWrapper
                                                     functionalityName="manage project"
                                                     moduleName="Projects List"
                                                     actionId={1}
                                                     component={
                                                         <Tooltip title="Add Project">
-                                                            <IconButton onClick={() => handleOpenProject(company)} size="small" sx={{ color: '#36B37E', '&:hover': { backgroundColor: '#E3FCEF' } }}>
+                                                            <IconButton onClick={() => handleOpenProject(company)} size="small" sx={{ color: '#36B37E', '&:hover': { backgroundColor: '#E3FCEF' }, mr: 1 }}>
                                                                 <FontAwesomeIcon icon={faFolderPlus} size="sm" />
                                                             </IconButton>
                                                         </Tooltip>
@@ -190,9 +215,11 @@ const ManageCompanies = ({ setAlert }) => {
                                                     moduleName="Companies List"
                                                     actionId={2}
                                                     component={
-                                                        <IconButton onClick={() => handleOpen(company)} size="small" sx={{ color: '#4C9AFF', ml: 1, '&:hover': { backgroundColor: '#E9F2FF' } }}>
-                                                            <FontAwesomeIcon icon={faEdit} size="sm" />
-                                                        </IconButton>
+                                                        <Tooltip title="Edit">
+                                                            <IconButton onClick={() => handleOpen(company)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' }, mr: 1 }}>
+                                                                <FontAwesomeIcon icon={faEdit} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                     }
                                                 />
                                                 <PermissionWrapper
@@ -200,9 +227,11 @@ const ManageCompanies = ({ setAlert }) => {
                                                     moduleName="Companies List"
                                                     actionId={3}
                                                     component={
-                                                        <IconButton onClick={() => openDeleteConfirm(company)} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
-                                                            <FontAwesomeIcon icon={faTrash} size="sm" />
-                                                        </IconButton>
+                                                        <Tooltip title="Delete">
+                                                            <IconButton onClick={() => openDeleteConfirm(company)} size="small" sx={{ color: '#DE350B', '&:hover': { backgroundColor: '#FFEBE6' } }}>
+                                                                <FontAwesomeIcon icon={faTrash} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                     }
                                                 />
                                             </div>
@@ -235,7 +264,7 @@ const ManageCompanies = ({ setAlert }) => {
                 onClose={() => setDeleteConfirmOpen({ open: false, company: null })}
                 onConfirm={handleDelete}
                 title="Delete Company"
-                description={`Are you sure you want to delete "${deleteConfirmOpen.company?.company_name}"? This action cannot be undone.`}
+                description={`Are you sure you want to delete "${deleteConfirmOpen.company?.company_name}"? `}
                 confirmText="Delete"
                 isDestructive={true}
             />

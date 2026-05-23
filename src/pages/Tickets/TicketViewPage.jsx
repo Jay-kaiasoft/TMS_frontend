@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Button, Paper, Avatar, AvatarGroup, Divider,
-    CircularProgress, Tooltip, IconButton, FormControlLabel, Radio, RadioGroup
+    CircularProgress, Tooltip, IconButton, FormControlLabel, Radio, RadioGroup,
+    Checkbox
 } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -13,10 +14,10 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { getTicketById, updateTicket } from '../../services/ticketService';
+import { getTicketById, updateTicket, updateAssigneeSendMail, getTicketsByProjectId } from '../../services/ticketService';
 import { getTicketComments } from '../../services/ticketCommentService';
 import { getAllProjects } from '../../services/projectService';
-import { getAllDepartments } from '../../services/departmentService';
+import { getAllDepartments, getDepartmentHierarchy } from '../../services/departmentService';
 import CommentSection from '../../components/common/CommentSection/CommentSection';
 import { connect } from 'react-redux';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
@@ -45,12 +46,14 @@ const TicketViewPage = ({ setAlert }) => {
     const [commentsCount, setCommentsCount] = useState(0);
     const [projects, setProjects] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [departmentHierarchy, setDepartmentHierarchy] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // React Hook Form initialization
     const { control, handleSubmit, reset, watch, setValue } = useForm({
         defaultValues: {
             project_id: null,
+            parent_ticket_id: null,
             department_id: null,
             title: '',
             description: '',
@@ -70,6 +73,82 @@ const TicketViewPage = ({ setAlert }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isUploadingFiles, setIsUploadingFiles] = useState(false);
     const attachmentRef = useRef(null);
+
+    const [sendMailSettings, setSendMailSettings] = useState({});
+    const [projectTickets, setProjectTickets] = useState([]);
+    const [loadingProjectTickets, setLoadingProjectTickets] = useState(false);
+
+    const selectedAssigneeIds = watch('assignees') || [];
+    const selectedProjectId = watch('project_id');
+    const prevProjectIdRef = useRef(null);
+
+    useEffect(() => {
+        if (prevProjectIdRef.current !== null && prevProjectIdRef.current !== selectedProjectId) {
+            setValue('parent_ticket_id', null);
+        }
+        prevProjectIdRef.current = selectedProjectId;
+    }, [selectedProjectId]);
+
+    useEffect(() => {
+        const fetchProjectTickets = async () => {
+            if (selectedProjectId) {
+                setLoadingProjectTickets(true);
+                try {
+                    const res = await getTicketsByProjectId(selectedProjectId);
+                    if (res.status === 200) {
+                        let tickets = res.result || [];
+                        if (id) {
+                            tickets = tickets.filter(t => t.id !== parseInt(id, 10));
+                        }
+                        const options = tickets.map(t => ({
+                            label: `${t.ticket_no} - ${t.title}`,
+                            value: t.id
+                        }));
+                        setProjectTickets(options);
+                    }
+                } catch (err) {
+                    console.error("Failed to load project tickets", err);
+                } finally {
+                    setLoadingProjectTickets(false);
+                }
+            } else {
+                setProjectTickets([]);
+            }
+        };
+        fetchProjectTickets();
+    }, [selectedProjectId, id]);
+
+    useEffect(() => {
+        if (selectedAssigneeIds.length > 0) {
+            setSendMailSettings(prev => {
+                const updated = { ...prev };
+                let changed = false;
+                selectedAssigneeIds.forEach(id => {
+                    if (updated[id] === undefined) {
+                        updated[id] = 'Y';
+                        changed = true;
+                    }
+                });
+                return changed ? updated : prev;
+            });
+        }
+    }, [selectedAssigneeIds]);
+
+    const getUserNameById = (id) => {
+        const findName = (nodes) => {
+            for (const node of nodes) {
+                if (node.id === id) {
+                    return node.name;
+                }
+                if (node.data && node.data.length > 0) {
+                    const found = findName(node.data);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+        return findName(hierarchyData) || `User ${id}`;
+    };
 
     const fetchUsers = async () => {
         try {
@@ -109,8 +188,17 @@ const TicketViewPage = ({ setAlert }) => {
             return isForCustomer ? `u-${id}` : id;
         });
 
+        const initialSendMail = {};
+        (ticket.assignees || []).forEach(a => {
+            const id = typeof a === 'object' ? a.id : a;
+            const key = isForCustomer ? `u-${id}` : id;
+            initialSendMail[key] = a.send_mail || 'Y';
+        });
+        setSendMailSettings(initialSendMail);
+
         reset({
             project_id: ticket.project_id || null,
+            parent_ticket_id: ticket.parent_ticket_id || null,
             department_id: ticket.department_id || null,
             title: ticket.title || '',
             description: ticket.description || '',
@@ -156,10 +244,15 @@ const TicketViewPage = ({ setAlert }) => {
             const payload = { ...data };
             if (payload.assignees) {
                 payload.assignees = payload.assignees.map(id => {
+                    let cleanId = id;
                     if (typeof id === 'string' && id.startsWith('u-')) {
-                        return parseInt(id.substring(2), 10);
+                        cleanId = parseInt(id.substring(2), 10);
                     }
-                    return id;
+                    const sendMailVal = sendMailSettings[id] || 'Y';
+                    return {
+                        id: cleanId,
+                        send_mail: sendMailVal
+                    };
                 });
             }
             if (payload.due_date) {
@@ -205,17 +298,19 @@ const TicketViewPage = ({ setAlert }) => {
     const fetchData = async (showLoader = true) => {
         if (showLoader) setLoading(true);
         try {
-            const [ticketRes, commentsRes, projectsRes, departmentsRes] = await Promise.all([
+            const [ticketRes, commentsRes, projectsRes, departmentsRes, hierarchyRes] = await Promise.all([
                 getTicketById(id),
                 getTicketComments(id),
                 getAllProjects(),
-                getAllDepartments()
+                getAllDepartments(),
+                getDepartmentHierarchy()
             ]);
 
             setTicket(ticketRes.result);
             setCommentsCount(commentsRes.result?.length || 0);
             setProjects(projectsRes.result || []);
             setDepartments(departmentsRes.result || []);
+            setDepartmentHierarchy(hierarchyRes.result || []);
         } catch (err) {
             console.error(err);
             setAlert({ open: true, message: "Failed to load ticket details.", type: "error" });
@@ -236,8 +331,21 @@ const TicketViewPage = ({ setAlert }) => {
     };
 
     const getDepartmentName = (deptId) => {
-        const found = departments.find(d => d.id === deptId);
-        return found ? found.name : "-";
+        if (!deptId) return "-";
+        const path = [];
+        let currentId = deptId;
+        const visited = new Set();
+        while (currentId && !visited.has(currentId)) {
+            visited.add(currentId);
+            const found = departments.find(d => d.id === currentId);
+            if (found) {
+                path.unshift(found.name);
+                currentId = found.parent_department_id;
+            } else {
+                break;
+            }
+        }
+        return path.length > 0 ? path.join(' > ') : "-";
     };
 
     const getAbsoluteUrl = (url) => {
@@ -316,7 +424,6 @@ const TicketViewPage = ({ setAlert }) => {
     const isToday = ticket.due_date && dayjs(ticket.due_date).isSame(dayjs(), 'day');
     const relativeDueDate = ticket.due_date ? dayjs(ticket.due_date).fromNow() : null;
     const formattedDueDate = ticket.due_date ? dayjs(ticket.due_date).format('MMM D, YYYY') : "-";
-    const relativeCreatedDate = ticket.created_date ? dayjs(ticket.created_date).fromNow() : null;
 
     return (
         <div className="max-w-full mx-auto px-4 space-y-6 animate-fade-in font-sans">
@@ -385,14 +492,33 @@ const TicketViewPage = ({ setAlert }) => {
                     {/* Title Block */}
                     <div className="bg-white p-6 border border-gray-200 rounded-2xl shadow-sm space-y-2 hover:border-gray-300 transition-all duration-200">
                         {isEditing ? (
-                            <CustomInput
-                                name="title"
-                                control={control}
-                                label="Ticket Title"
-                                rules={{ required: "Ticket title is required" }}
-                            />
+                            <div className="space-y-4">
+                                <CustomInput
+                                    name="title"
+                                    control={control}
+                                    label="Ticket Title"
+                                    rules={{ required: "Ticket title is required" }}
+                                />
+                                {selectedProjectId && projectTickets.length > 0 && (
+                                    <CustomSelect
+                                        name="parent_ticket_id"
+                                        control={control}
+                                        label="Parent Ticket"
+                                        options={projectTickets}
+                                    />
+                                )}
+                            </div>
                         ) : (
                             <>
+                                {ticket.parent_ticket_id && (
+                                    <div 
+                                        className="text-xs font-semibold text-[#0052CC] hover:underline cursor-pointer mb-2 flex items-center gap-1.5 select-none" 
+                                        onClick={() => navigate(`/dashboard/manage-tickets/view/${ticket.parent_ticket_id}`)}
+                                    >
+                                        <FontAwesomeIcon icon={faFolder} size="xs" />
+                                        <span>Parent Ticket: {ticket.parent_ticket_no ? `[${ticket.parent_ticket_no}] ` : ''}{ticket.parent_ticket_title}</span>
+                                    </div>
+                                )}
                                 <div className="flex items-start justify-between gap-4 p-1">
                                     <Typography variant="h4" className="font-bold text-gray-900 tracking-tight leading-tight select-none">
                                         {ticket.title}
@@ -405,7 +531,7 @@ const TicketViewPage = ({ setAlert }) => {
                                     </div>
                                     <span className="text-gray-300">•</span>
                                     <div>
-                                        <span>Created {relativeCreatedDate}</span>
+                                        <span>Created {dayjs(ticket.created_date).fromNow()}</span>
                                     </div>
                                     <span className="text-gray-300">•</span>
                                     <div className="flex items-center gap-1.5">
@@ -435,7 +561,7 @@ const TicketViewPage = ({ setAlert }) => {
                                 <RichTextEditor
                                     name="description"
                                     control={control}
-                                    label="Ticket Description"
+                                    // label="Ticket Description"
                                     minimal={false}
                                 />
                             ) : (
@@ -453,8 +579,7 @@ const TicketViewPage = ({ setAlert }) => {
                         </div>
                     </Paper>
 
-                    {/* Attachments Card */}
-                    <Paper className="p-6 border border-gray-200 rounded-2xl shadow-sm bg-white space-y-4">
+                    {/* <Paper className="p-6 border border-gray-200 rounded-2xl shadow-sm bg-white space-y-4">
                         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center">
@@ -532,7 +657,7 @@ const TicketViewPage = ({ setAlert }) => {
                                 </div>
                             )
                         )}
-                    </Paper>
+                    </Paper> */}
 
                     {/* Comments Section */}
                     <Paper className="p-6 border border-gray-200 rounded-2xl shadow-sm bg-white space-y-4">
@@ -638,10 +763,13 @@ const TicketViewPage = ({ setAlert }) => {
                                             <FontAwesomeIcon icon={faBuilding} size="xs" /> Department
                                         </label>
                                         {isEditing ? (
-                                            <CustomSelect
+                                            <HierarchySelect
                                                 name="department_id"
                                                 control={control}
-                                                options={departments.map(d => ({ label: d.name, value: d.id }))}
+                                                label=""
+                                                hierarchyData={departmentHierarchy}
+                                                multiple={false}
+                                                showDivider={false}
                                             />
                                         ) : (
                                             <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-100 rounded-lg p-2.5">
@@ -729,13 +857,53 @@ const TicketViewPage = ({ setAlert }) => {
                             </label>
 
                             {isEditing ? (
-                                <HierarchySelect
-                                    name="assignees"
-                                    control={control}
-                                    label=""
-                                    hierarchyData={hierarchyData}
-                                    rules={{ validate: (value) => value && value.length > 0 || "Assign users is required" }}
-                                />
+                                <>
+                                    <HierarchySelect
+                                        name="assignees"
+                                        control={control}
+                                        label=""
+                                        hierarchyData={hierarchyData}
+                                        rules={{ validate: (value) => value && value.length > 0 || "Assign users is required" }}
+                                        limitTags={0}
+                                    />
+                                    {selectedAssigneeIds.length > 0 && (
+                                        <div className="mt-4 p-3 bg-[#F4F5F7] border border-[#DFE1E6] rounded-lg">
+                                            <h4 className="text-xs font-bold text-[#172B4D] mb-2 uppercase tracking-wider font-sans">Watch List</h4>
+                                            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                                                {selectedAssigneeIds.map(id => {
+                                                    const name = getUserNameById(id);
+                                                    const isChecked = sendMailSettings[id] !== 'N';
+                                                    return (
+                                                        <div key={id} className="flex items-center justify-between py-1.5 px-3 bg-white rounded border border-[#DFE1E6] hover:border-[#4c9aff] transition-colors">
+                                                            <span className="text-xs font-medium text-[#172B4D] font-sans">{name}</span>
+                                                            <FormControlLabel
+                                                                control={
+                                                                    <Checkbox
+                                                                        checked={isChecked}
+                                                                        onChange={(e) => {
+                                                                            const newVal = e.target.checked ? 'Y' : 'N';
+                                                                            setSendMailSettings(prev => ({ ...prev, [id]: newVal }));
+                                                                        }}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            color: '#42526E',
+                                                                            '&.Mui-checked': {
+                                                                                color: '#0052CC',
+                                                                            },
+                                                                        }}
+                                                                    />
+                                                                }
+                                                                label={<span className="text-[10px] text-[#5E6C84] font-sans">Send Mail</span>}
+                                                                labelPlacement="start"
+                                                                sx={{ margin: 0 }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             ) : (
                                 ticket.assignees && ticket.assignees.length > 0 ? (
                                     <div className="space-y-3 pt-1">
@@ -778,6 +946,72 @@ const TicketViewPage = ({ setAlert }) => {
                                 )
                             )}
                         </Paper>
+
+                        {/* Watch List Card */}
+                        {!isEditing && ticket.assignees && ticket.assignees.length > 0 && (
+                            <Paper className="border border-gray-200 rounded-2xl shadow-sm bg-white p-5 space-y-4">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block flex items-center gap-1.5 font-sans">
+                                    <FontAwesomeIcon icon={faUsers} size="xs" /> Watch List
+                                </label>
+                                <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden bg-gray-50/30">
+                                    {ticket.assignees.map((user, idx) => {
+                                        const isChecked = user.send_mail !== 'N';
+                                        return (
+                                            <div key={idx} className="flex items-center justify-between p-2 px-3 hover:bg-gray-50 transition-colors">
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <Avatar
+                                                        className="bg-blue-50 text-blue-600 font-semibold"
+                                                        sx={{ width: 26, height: 26, fontSize: '0.7rem' }}
+                                                    >
+                                                        {user.name?.split(' ').map(n => n[0]).join('')}
+                                                    </Avatar>
+                                                    <span className="text-xs font-semibold text-gray-700 truncate font-sans">
+                                                        {user.name}
+                                                    </span>
+                                                </div>
+                                                <FormControlLabel
+                                                    control={
+                                                        <Checkbox
+                                                            checked={isChecked}
+                                                            onChange={async (e) => {
+                                                                const newVal = e.target.checked ? 'Y' : 'N';
+                                                                try {
+                                                                    const res = await updateAssigneeSendMail(ticket.id, user.id, newVal);
+                                                                    if (res.status === 200) {
+                                                                        setTicket(prev => {
+                                                                            if (!prev) return prev;
+                                                                            const updatedAssignees = prev.assignees.map(a => 
+                                                                                a.id === user.id ? { ...a, send_mail: newVal } : a
+                                                                            );
+                                                                            return { ...prev, assignees: updatedAssignees };
+                                                                        });
+                                                                        setAlert({ open: true, message: `Watchlist updated successfully`, type: "success" });
+                                                                    } else {
+                                                                        setAlert({ open: true, message: res.message || "Failed to update watchlist", type: "error" });
+                                                                    }
+                                                                } catch (err) {
+                                                                    setAlert({ open: true, message: "Error updating watchlist", type: "error" });
+                                                                }
+                                                            }}
+                                                            size="small"
+                                                            sx={{
+                                                                color: '#42526E',
+                                                                '&.Mui-checked': {
+                                                                    color: '#0052CC',
+                                                                },
+                                                            }}
+                                                        />
+                                                    }
+                                                    label={<span className="text-[10px] text-[#5E6C84] font-sans">Send Mail</span>}
+                                                    labelPlacement="start"
+                                                    sx={{ margin: 0 }}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </Paper>
+                        )}
                     </div>
                 </div>
             </div>

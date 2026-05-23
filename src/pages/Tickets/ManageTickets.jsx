@@ -372,7 +372,7 @@ const ManageTickets = ({ setAlert }) => {
                 onClose={() => setDeleteConfirmOpen({ open: false, ticket: null })}
                 onConfirm={handleDelete}
                 title="Delete Ticket"
-                description={`Are you sure you want to delete "${deleteConfirmOpen.ticket?.title}"? This action cannot be undone.`}
+                description={`Are you sure you want to delete "${deleteConfirmOpen.ticket?.title}"? `}
                 confirmText="Delete"
                 isDestructive={true}
             />

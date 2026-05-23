@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { IconButton, Chip, CircularProgress, Tooltip } from '@mui/material';
+import { useSearchParams } from 'react-router-dom';
+import { decryptData } from '../../utils/cryptoHelper';
 import CustomButton from '../../components/common/CustomButton';
 import UserFormDialog from './UserFormDialog';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -12,10 +14,17 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import { connect } from 'react-redux';
 import { setAlert, setLoading } from '../../redux/commonReducers/commonReducers';
+import { getAllCompanies } from '../../services/companyService';
 
 const ManageUsers = ({ setAlert, setLoading, loading }) => {
+    const [searchParams] = useSearchParams();
+    const companyIdParam = searchParams.get('companyId');
+    const [companyId, setCompanyId] = useState(null);
+    const [isDecrypting, setIsDecrypting] = useState(!!companyIdParam);
+
     const [users, setUsers] = useState([]);
     const [dbRoles, setDbRoles] = useState([]);
+    const [companies, setCompanies] = useState([]);
 
     // Modal State
     const [open, setOpen] = useState(false);
@@ -35,22 +44,53 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
 
     const { control, watch } = useForm({
         defaultValues: {
-            role_ids: []
+            role_ids: [],
+            company_ids: []
         }
     });
 
     const selectedRoleIds = watch("role_ids") || [];
     const selectedRoleIdsStr = JSON.stringify(selectedRoleIds);
 
+    useEffect(() => {
+        const decryptCompanyId = async () => {
+            if (companyIdParam) {
+                setIsDecrypting(true);
+                try {
+                    const decrypted = await decryptData(decodeURIComponent(companyIdParam));
+                    if (decrypted) {
+                        const parsedId = Number(decrypted);
+                        if (!isNaN(parsedId)) {
+                            setCompanyId(parsedId);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Failed to decrypt companyId:", error);
+                } finally {
+                    setIsDecrypting(false);
+                }
+            } else {
+                setCompanyId(null);
+                setIsDecrypting(false);
+            }
+        };
+        decryptCompanyId();
+    }, [companyIdParam]);
+
     const fetchUsers = async () => {
+        if (isDecrypting) return;
         setLoading(true);
         try {
-            const currentSelectedRoles = watch("role_ids") || [];
             let res;
-            if (currentSelectedRoles.length > 0) {
-                res = await filterUsers(currentSelectedRoles);
+            if (companyId) {
+                res = await getAllUsers(companyId);
             } else {
-                res = await getAllUsers();
+                const currentSelectedRoles = watch("role_ids") || [];
+                if (currentSelectedRoles.length > 0) {
+                    res = await filterUsers(currentSelectedRoles);
+                } else {
+                    res = await getAllUsers();
+                }
             }
             setUsers(res.result || []);
         } catch (error) {
@@ -65,23 +105,39 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
     };
 
     const fetchDbRoles = async () => {
-        try {
-            const res = await getAllRoles();
-            const data = res.result?.map((row) => ({ label: row.name, value: row.id })) || [];
-            setDbRoles(data);
-        } catch (err) {
-            console.error(err);
-            setAlert({ open: true, message: "Failed to load roles.", type: "error" });
+        if (!companyIdParam) {
+            try {
+                const res = await getAllRoles();
+                const data = res.result?.map((row) => ({ label: row.name, value: row.id })) || [];
+                setDbRoles(data);
+            } catch (err) {
+                console.error(err);
+                setAlert({ open: true, message: "Failed to load roles.", type: "error" });
+            }
         }
     };
 
+    const fetchCompanies = async () => {
+        if (!companyIdParam) {
+            try {
+                const res = await getAllCompanies();
+                const data = res.result?.map((row) => ({ label: row.company_name, value: row.id })) || [];
+                setCompanies(data);
+            } catch (err) {
+                console.error(err);
+                setAlert({ open: true, message: "Failed to load companies.", type: "error" });
+            }
+        }
+    }
+
     useEffect(() => {
         fetchDbRoles();
+        fetchCompanies()
     }, []);
 
     useEffect(() => {
         fetchUsers();
-    }, [selectedRoleIdsStr]);
+    }, [selectedRoleIdsStr, companyId, isDecrypting]);
 
     const handleOpen = (user = null) => {
         if (user) {
@@ -142,17 +198,31 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
     return (
         <div className="space-y-4 max-w-7xl mx-auto">
             {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 bg-white p-4 border border-[#DFE1E6] rounded-xl shadow-sm">
-                <div className="w-full sm:w-72">
-                    <CustomSelect
-                        name="role_ids"
-                        control={control}
-                        label="Filter by Roles"
-                        options={dbRoles}
-                        multiple={true}
-                        withCheckbox={true}
-                    />
-                </div>
+            <div className={`flex flex-col sm:flex-row sm:items-center ${companyIdParam ? "sm:justify-end" : "sm:justify-between"}  gap-4 bg-white p-4 border border-[#DFE1E6] rounded-xl shadow-sm`}>
+                {
+                    !companyIdParam && (
+                        <div className='w-full sm:w-162.5'>
+                            <div className="flex items-center gap-2">
+                                <CustomSelect
+                                    name="role_ids"
+                                    control={control}
+                                    label="Filter by roles"
+                                    options={dbRoles}
+                                    multiple={true}
+                                    withCheckbox={true}
+                                />
+                                <CustomSelect
+                                    name="company_ids"
+                                    control={control}
+                                    label="Filter by company"
+                                    options={companies}
+                                    multiple={true}
+                                    withCheckbox={true}
+                                />
+                            </div>
+                        </div>
+                    )
+                }
                 <div className="sm:pt-1">
                     <PermissionWrapper
                         functionalityName="manage user"
@@ -214,7 +284,8 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
                                         </div>
                                         {user.phone && (
                                             <div className="text-xs text-[#5E6C84] mt-1 flex items-center gap-2">
-                                                <FontAwesomeIcon icon={faPhone} className="text-[#8993A4]" /> {user.phone} {user.is_sms_active && <span className="text-[10px] bg-[#E3FCEF] text-[#006644] px-1 py-0.5 rounded ml-1">SMS ON</span>}
+                                                <FontAwesomeIcon icon={faPhone} className="text-[#8993A4]" /> {user.phone}
+                                                {/* {user.is_sms_active && <span className="text-[10px] bg-[#E3FCEF] text-[#006644] px-1 py-0.5 rounded ml-1">SMS ON</span>} */}
                                             </div>
                                         )}
                                     </td>
@@ -243,7 +314,7 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
                                                         <IconButton
                                                             onClick={() => handleSendCredentials(user)}
                                                             size="small"
-                                                            sx={{ color: '#FF9800', ml: 1, '&:hover': { backgroundColor: '#FFF3E0' } }}
+                                                            sx={{ color: '#FF9800', '&:hover': { backgroundColor: '#FFF3E0' } }}
                                                         >
                                                             <FontAwesomeIcon icon={faKey} size="sm" />
                                                         </IconButton>
@@ -255,9 +326,11 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
                                                 moduleName="users"
                                                 actionId={2}
                                                 component={
-                                                    <IconButton onClick={() => handleOpen(user)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
-                                                        <FontAwesomeIcon icon={faEdit} size="sm" />
-                                                    </IconButton>
+                                                    <Tooltip title="Edit">
+                                                        <IconButton onClick={() => handleOpen(user)} size="small" sx={{ mx: 1, color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
+                                                            <FontAwesomeIcon icon={faEdit} size="sm" />
+                                                        </IconButton>
+                                                    </Tooltip>
                                                 }
                                             />
                                             <PermissionWrapper
@@ -265,9 +338,11 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
                                                 moduleName="users"
                                                 actionId={3}
                                                 component={
-                                                    <IconButton onClick={() => confirmDelete(user)} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
-                                                        <FontAwesomeIcon icon={faTrash} size="sm" />
-                                                    </IconButton>
+                                                    <Tooltip title="Delete">
+                                                        <IconButton onClick={() => confirmDelete(user)} size="small" sx={{ color: '#DE350B', '&:hover': { backgroundColor: '#FFEBE6' } }}>
+                                                            <FontAwesomeIcon icon={faTrash} size="sm" />
+                                                        </IconButton>
+                                                    </Tooltip>
                                                 }
                                             />
                                         </div>
@@ -287,6 +362,10 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
                     handleClose();
                 }}
                 editingUserId={editingUserId}
+                defaultCompanyId={companyId}
+                disableCompanySelect={companyId}
+                disableRoleSelect={companyId}
+                defaultRoleId={3}
             />
 
             <ConfirmDialog
@@ -294,7 +373,7 @@ const ManageUsers = ({ setAlert, setLoading, loading }) => {
                 onClose={() => setDeleteConfirmOpen(false)}
                 onConfirm={handleDelete}
                 title="Delete User?"
-                description={`Are you sure you want to permanently delete the user ${userToDelete?.first_name} ${userToDelete?.last_name}? This action cannot be undone.`}
+                description={`Are you sure you want to permanently delete the user ${userToDelete?.first_name} ${userToDelete?.last_name}? `}
                 confirmText="Delete User"
                 isDestructive={true}
             />

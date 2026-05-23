@@ -51,7 +51,20 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading, onCommentsCou
         <div className="bg-white mt-4 overflow-hidden animate-fade-in-up">
             <div>
                 {/* New Comment Creator */}
-                <div className="py-2">
+                {
+                    <div className="space-y-2">
+                        {comments?.map(comment => (
+                            <CommentItem
+                                key={comment.id}
+                                comment={comment}
+                                ticketId={ticketId}
+                                currentUser={currentUser}
+                                onCommentUpdated={fetchComments}
+                            />
+                        ))}
+                    </div>
+                }
+                <div className="pt-4">
                     <div className="flex items-center gap-4 mb-4">
                         <FormControl size="small" sx={{ minWidth: 200, bgcolor: 'white' }}>
                             <InputLabel id="comment-type-label" shrink>Visibility</InputLabel>
@@ -79,19 +92,6 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading, onCommentsCou
                         submitText="Save"
                     />
                 </div>
-                {
-                    <div className="space-y-2">
-                        {comments?.map(comment => (
-                            <CommentItem
-                                key={comment.id}
-                                comment={comment}
-                                ticketId={ticketId}
-                                currentUser={currentUser}
-                                onCommentUpdated={fetchComments}
-                            />
-                        ))}
-                    </div>
-                }
             </div>
         </div>
     );

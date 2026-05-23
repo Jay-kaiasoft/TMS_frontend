@@ -17,7 +17,7 @@ const OptionContainer = styled(Box)(({ theme, depth }) => ({
     width: '100%',
 }));
 
-const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags = 2, ...props }) => {
+const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags = 2, multiple = true, showDivider = true, dividerLabel = 'Other Members', ...props }) => {
     // Flatten the tree and build lookup maps
     const { flattenedOptions, nodeMap, parentMap, childrenMap } = useMemo(() => {
         if (!hierarchyData || hierarchyData.length === 0) {
@@ -64,10 +64,10 @@ const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags
         traverse(hierarchyRoots, 0, null, 'hierarchy');
 
         // Divider for "Other Members" (if any isolated roots exist)
-        if (isolatedRoots.length > 0) {
+        if (showDivider && dividerLabel && isolatedRoots.length > 0) {
             flattened.push({
                 id: 'divider-others',
-                name: 'Other Members',
+                name: dividerLabel,
                 disabled: true,
                 isDivider: true,
                 depth: 0,
@@ -146,15 +146,19 @@ const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags
             control={control}
             rules={rules}
             render={({ field: { onChange, value }, fieldState: { error } }) => {
-                const selectedIds = value || [];
+                const selectedIds = multiple ? (value || []) : (value ? [value] : []);
                 const expandedSelection = useMemo(
                     () => computeExpandedSelection(selectedIds),
-                    [selectedIds, parentMap] // parentMap is stable, but we need to recompute when selectedIds changes
+                    [selectedIds, parentMap]
                 );
 
-                const selectedOptions = flattenedOptions.filter(
-                    opt => !opt.isDivider && selectedIds.includes(opt.id)
-                );
+                const selectedOption = useMemo(() => {
+                    if (multiple) {
+                        return flattenedOptions.filter(opt => !opt.isDivider && selectedIds.includes(opt.id));
+                    } else {
+                        return flattenedOptions.find(opt => !opt.isDivider && opt.id === value) || null;
+                    }
+                }, [value, flattenedOptions, multiple, selectedIds]);
 
                 const filterOptions = (options, state) => {
                     return options.filter(opt => {
@@ -179,35 +183,42 @@ const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags
                 };
 
                 const handleAutocompleteChange = (event, newValue, reason) => {
-                    if (reason === 'clear') {
-                        onChange([]);
-                    } else if (reason === 'removeOption') {
-                        // Find which chip was removed
-                        const newIds = newValue.map(opt => opt.id);
-                        const removedIds = selectedIds.filter(id => !newIds.includes(id));
-                        if (removedIds.length > 0) {
-                            let newSelection = new Set(selectedIds);
-                            removedIds.forEach(id => {
-                                applyHierarchyRemoval(newSelection, id);
-                            });
-                            const filtered = filterSelectable(Array.from(newSelection));
-                            onChange(filtered);
+                    if (multiple) {
+                        if (reason === 'clear') {
+                            onChange([]);
+                        } else if (reason === 'removeOption') {
+                            const newIds = newValue.map(opt => opt.id);
+                            const removedIds = selectedIds.filter(id => !newIds.includes(id));
+                            if (removedIds.length > 0) {
+                                let newSelection = new Set(selectedIds);
+                                removedIds.forEach(id => {
+                                    applyHierarchyRemoval(newSelection, id);
+                                });
+                                const filtered = filterSelectable(Array.from(newSelection));
+                                onChange(filtered);
+                            }
+                        }
+                    } else {
+                        if (reason === 'clear') {
+                            onChange(null);
+                        } else {
+                            onChange(newValue ? newValue.id : null);
                         }
                     }
-                    // Ignore 'selectOption' – only checkboxes add selections
                 };
 
                 return (
                     <FormControl fullWidth error={!!error} {...props}>
                         <Autocomplete
-                            multiple
+                            multiple={multiple}
                             size="small"
-                            disableCloseOnSelect
+                            disableCloseOnSelect={multiple}
                             options={flattenedOptions}
                             getOptionLabel={(option) => option.name || ''}
                             isOptionEqualToValue={(option, val) => option.id === val.id}
+                            getOptionDisabled={(option) => option.selectable === false || option.isDivider}
                             filterOptions={filterOptions}
-                            value={selectedOptions}
+                            value={selectedOption}
                             onChange={handleAutocompleteChange}
                             renderInput={(params) => (
                                 <TextField
@@ -233,7 +244,7 @@ const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags
                                 return (
                                     <li key={option.id} {...liProps}>
                                         <OptionContainer depth={option.depth}>
-                                            {option.selectable && (
+                                            {multiple && option.selectable && (
                                                 <Checkbox
                                                     checked={expandedSelection.has(option.id)}
                                                     onChange={() => handleToggle(option.id)}
@@ -252,7 +263,7 @@ const HierarchySelect = ({ name, control, label, hierarchyData, rules, limitTags
                                 );
                             }}
                             ListboxProps={{ style: { maxHeight: 300 } }}
-                            limitTags={limitTags}
+                            limitTags={limitTags === 0 ? -1 : limitTags}
                         />
                     </FormControl>
                 );

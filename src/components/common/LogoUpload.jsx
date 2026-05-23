@@ -3,8 +3,12 @@ import { Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faTrash, faImage } from '@fortawesome/free-solid-svg-icons';
+import { useDispatch } from 'react-redux';
+import { setAlert } from '../../redux/commonReducers/commonReducers';
 
 const LogoUpload = ({ name, control, label, existingUrl = null }) => {
+    const dispatch = useDispatch();
+
     return (
         <Controller
             name={name}
@@ -32,16 +36,25 @@ const LogoUpload = ({ name, control, label, existingUrl = null }) => {
                     }
                 }, [value, existingUrl]);
 
-                const onDrop = useCallback((acceptedFiles) => {
+                const onDrop = useCallback((acceptedFiles, fileRejections) => {
                     if (acceptedFiles?.length > 0) {
                         onChange(acceptedFiles[0]);
                     }
-                }, [onChange]);
+                    if (fileRejections?.length > 0) {
+                        const isTooLarge = fileRejections.some(rejection =>
+                            rejection.errors.some(error => error.code === 'file-too-large') || rejection.file.size > 5 * 1024 * 1024
+                        );
+                        if (isTooLarge) {
+                            dispatch(setAlert({ open: true, message: "Logo image size must be less than 5MB.", type: "warning" }));
+                        }
+                    }
+                }, [onChange, dispatch]);
 
                 const { getRootProps, getInputProps, isDragActive } = useDropzone({
                     onDrop,
                     accept: { 'image/*': [] },
                     maxFiles: 1,
+                    maxSize: 5 * 1024 * 1024, // 5MB
                     multiple: false,
                 });
 

@@ -29,7 +29,7 @@ const ConfirmDialog = ({
                 sx: {
                     borderRadius: '12px',
                     boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-                    minWidth: { xs: '300px', sm: '400px' }
+                    minWidth: { xs: '300px', sm: '600px' }
                 }
             }}
         >

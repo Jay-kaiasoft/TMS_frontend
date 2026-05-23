@@ -209,9 +209,11 @@ const ManageProjects = ({ setAlert }) => {
                                                     moduleName="Projects List"
                                                     actionId={2}
                                                     component={
-                                                        <IconButton onClick={() => handleOpen(project)} size="small" sx={{ color: '#4C9AFF', ml: 1, '&:hover': { backgroundColor: '#E9F2FF' } }}>
-                                                            <FontAwesomeIcon icon={faEdit} size="sm" />
-                                                        </IconButton>
+                                                        <Tooltip title="Edit">
+                                                            <IconButton onClick={() => handleOpen(project)} size="small" sx={{ color: '#4C9AFF', ml: 1, '&:hover': { backgroundColor: '#E9F2FF' } }}>
+                                                                <FontAwesomeIcon icon={faEdit} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                     }
                                                 />
                                                 <PermissionWrapper
@@ -219,9 +221,11 @@ const ManageProjects = ({ setAlert }) => {
                                                     moduleName="Projects List"
                                                     actionId={3}
                                                     component={
-                                                        <IconButton onClick={() => openDeleteConfirm(project)} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
-                                                            <FontAwesomeIcon icon={faTrash} size="sm" />
-                                                        </IconButton>
+                                                        <Tooltip title="Delete">
+                                                            <IconButton onClick={() => openDeleteConfirm(project)} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
+                                                                <FontAwesomeIcon icon={faTrash} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                     }
                                                 />
                                             </div>
@@ -259,7 +263,7 @@ const ManageProjects = ({ setAlert }) => {
                 onClose={() => setDeleteConfirmOpen({ open: false, project: null })}
                 onConfirm={handleDelete}
                 title="Delete Project"
-                description={`Are you sure you want to delete ${deleteConfirmOpen.project?.name}? This action cannot be undone.`}
+                description={`Are you sure you want to delete ${deleteConfirmOpen.project?.name}? `}
                 confirmText="Delete"
                 isDestructive={true}
             />

@@ -86,45 +86,48 @@ const UserFormDialog = ({
         }
     };
 
+    const fetchUserData = async () => {
+        if (editingUserId) {
+            setLoadingData(true);
+            getUserById(editingUserId).then(res => {
+                reset({
+                    first_name: res.result.first_name || '',
+                    last_name: res.result.last_name || '',
+                    email: res.result.email || '',
+                    password: '', // Blank by default on edit
+                    role_id: res.result.role_id || 3,
+                    city: res.result.city || '',
+                    state: res.result.state || '',
+                    country: res.result.country || '',
+                    zip: res.result.zip || '',
+                    phone: res.result.phone || '',
+                    is_sms_active: res.result.is_sms_active ?? false,
+                    is_active: res.result.is_active ?? true,
+                    report_to: res.result.report_to ?? null,
+                    company_id: res?.result?.company_id || null,
+                });
+            }).catch(err => {
+                setAlert({ open: true, message: "Failed to load user details.", type: "error" });
+            }).finally(() => {
+                setLoadingData(false);
+            });
+        } else {
+            reset({
+                first_name: '', last_name: '', email: '', password: '', role_id: defaultRoleId ?? 3,
+                city: '', state: '', country: '', zip: '', phone: '',
+                is_sms_active: false, is_active: true, report_to: null, company_id: defaultCompanyId ?? null
+            });
+        }
+    }
+
     useEffect(() => {
         if (open) {
             fetchUsers();
             fetchRoles()
             fetchCompanies();
-            if (editingUserId) {
-                setLoadingData(true);
-                getUserById(editingUserId).then(res => {
-                    reset({
-                        first_name: res.result.first_name || '',
-                        last_name: res.result.last_name || '',
-                        email: res.result.email || '',
-                        password: '', // Blank by default on edit
-                        role_id: res.result.role_id || 3,
-                        city: res.result.city || '',
-                        state: res.result.state || '',
-                        country: res.result.country || '',
-                        zip: res.result.zip || '',
-                        phone: res.result.phone || '',
-                        is_sms_active: res.result.is_sms_active ?? false,
-                        is_active: res.result.is_active ?? true,
-                        report_to: res.result.report_to ?? null,
-                        company_id: res?.result?.company_id || null,
-                    });
-                }).catch(err => {
-                    console.error("Failed to fetch user details", err);
-                    setAlert({ open: true, message: "Failed to load user details.", type: "error" });
-                }).finally(() => {
-                    setLoadingData(false);
-                });
-            } else {
-                reset({
-                    first_name: '', last_name: '', email: '', password: '', role_id: defaultRoleId ?? 3,
-                    city: '', state: '', country: '', zip: '', phone: '',
-                    is_sms_active: false, is_active: true, report_to: null, company_id: defaultCompanyId ?? null
-                });
-            }
+            fetchUserData()
         }
-    }, [open, editingUserId, reset, setAlert, defaultCompanyId, defaultRoleId]);
+    }, [open]);
 
     const handleFormSubmit = async (data) => {
         setIsSubmitting(true);

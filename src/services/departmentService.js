@@ -1,6 +1,16 @@
 import axiosInterceptor from './axiosInterceptor';
 import { departmentURL } from '../config/config';
 
+export const getDepartmentHierarchy = async () => {
+    try {
+        const response = await axiosInterceptor.get(`${departmentURL}/hierarchy`);
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching department hierarchy:", error);
+        throw error;
+    }
+};
+
 export const getAllDepartments = async () => {
     try {
         const response = await axiosInterceptor.get(departmentURL);

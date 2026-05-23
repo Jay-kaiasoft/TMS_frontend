@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { IconButton } from '@mui/material';
+import { IconButton, Tooltip } from '@mui/material';
 import { connect } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -103,9 +103,11 @@ const ManageRoles = ({ setAlert }) => {
                                                     moduleName="Roles List"
                                                     actionId={2}
                                                     component={
-                                                        <IconButton onClick={() => navigate(`/dashboard/manage-role/edit/${role.id}`)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
-                                                            <FontAwesomeIcon icon={faEdit} size="sm" />
-                                                        </IconButton>
+                                                        <Tooltip title="Edit">
+                                                            <IconButton onClick={() => navigate(`/dashboard/manage-role/edit/${role.id}`)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
+                                                                <FontAwesomeIcon icon={faEdit} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                     }
                                                 />
                                                 <PermissionWrapper
@@ -113,9 +115,11 @@ const ManageRoles = ({ setAlert }) => {
                                                     moduleName="Roles List"
                                                     actionId={3}
                                                     component={
-                                                        <IconButton onClick={() => setDeleteConfirmOpen({ open: true, role })} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
-                                                            <FontAwesomeIcon icon={faTrash} size="sm" />
-                                                        </IconButton>
+                                                        <Tooltip title="Delete">
+                                                            <IconButton onClick={() => setDeleteConfirmOpen({ open: true, role })} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
+                                                                <FontAwesomeIcon icon={faTrash} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                     }
                                                 />
                                             </div>
@@ -133,7 +137,7 @@ const ManageRoles = ({ setAlert }) => {
                 onClose={() => setDeleteConfirmOpen({ open: false, role: null })}
                 onConfirm={handleDelete}
                 title="Delete Role"
-                description={`Are you sure you want to delete "${deleteConfirmOpen.role?.name}"? This action cannot be undone.`}
+                description={`Are you sure you want to delete "${deleteConfirmOpen.role?.name}"? `}
                 confirmText="Delete"
                 isDestructive={true}
             />

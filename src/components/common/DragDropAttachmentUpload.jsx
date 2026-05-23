@@ -338,7 +338,7 @@ const DragDropAttachmentUpload = forwardRef(({
                 onClose={() => setDeleteConfirmOpen({ open: false, attId: null, fileName: '' })}
                 onConfirm={confirmDelete}
                 title="Delete Attachment"
-                description={`Are you sure you want to delete "${deleteConfirmOpen.fileName}"? This action cannot be undone.`}
+                description={`Are you sure you want to delete "${deleteConfirmOpen.fileName}"? `}
                 confirmText="Delete"
                 isDestructive={true}
             />

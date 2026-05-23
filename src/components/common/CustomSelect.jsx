@@ -11,6 +11,7 @@ const CustomSelect = ({
     withCheckbox = false,
     rules,
     disabled = false,
+    limitTags = 2,
     ...props
 }) => {
     return (
@@ -63,7 +64,7 @@ const CustomSelect = ({
                                 // helperText={error ? error.message : null}
                                 />
                             )}
-                            limitTags={2}
+                            limitTags={limitTags}
                         />
                     </FormControl>
                 );

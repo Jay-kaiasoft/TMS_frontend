@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CircularProgress, IconButton } from '@mui/material';
+import { CircularProgress, IconButton, Tooltip } from '@mui/material';
 import { connect } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faBuilding } from '@fortawesome/free-solid-svg-icons';
@@ -121,9 +121,11 @@ const ManageDepartments = ({ setAlert }) => {
                                                     moduleName="Departments List"
                                                     actionId={2}
                                                     component={
-                                                        <IconButton onClick={() => handleOpen(dept)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
-                                                            <FontAwesomeIcon icon={faEdit} size="sm" />
-                                                        </IconButton>
+                                                        <Tooltip title="Edit">
+                                                            <IconButton onClick={() => handleOpen(dept)} size="small" sx={{ color: '#4C9AFF', '&:hover': { backgroundColor: '#E9F2FF' } }}>
+                                                                <FontAwesomeIcon icon={faEdit} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                     }
                                                 />
                                                 <PermissionWrapper
@@ -131,9 +133,11 @@ const ManageDepartments = ({ setAlert }) => {
                                                     moduleName="Departments List"
                                                     actionId={3}
                                                     component={
-                                                        <IconButton onClick={() => openDeleteConfirm(dept)} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
-                                                            <FontAwesomeIcon icon={faTrash} size="sm" />
-                                                        </IconButton>
+                                                        <Tooltip title="Delete">
+                                                            <IconButton onClick={() => openDeleteConfirm(dept)} size="small" sx={{ color: '#DE350B', ml: 1, '&:hover': { backgroundColor: '#FFEBE6' } }}>
+                                                                <FontAwesomeIcon icon={faTrash} size="sm" />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                     }
                                                 />
                                             </div>
@@ -161,7 +165,7 @@ const ManageDepartments = ({ setAlert }) => {
                 onClose={() => setDeleteConfirmOpen({ open: false, department: null })}
                 onConfirm={handleDelete}
                 title="Delete Department"
-                description={`Are you sure you want to delete ${deleteConfirmOpen.department?.name}? This action cannot be undone.`}
+                description={`Are you sure you want to delete ${deleteConfirmOpen.department?.name}? `}
                 confirmText="Delete"
                 isDestructive={true}
             />
