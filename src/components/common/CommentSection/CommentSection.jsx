@@ -11,7 +11,7 @@ import { getAllowedCommentTypes } from '../../../services/commentService';
 import { useForm } from 'react-hook-form';
 import CustomSelect from '../CustomSelect';
 
-const CommentSection = ({ ticketId, setAlert, setLoading, loading, onCommentsCountChange }) => {
+const CommentSection = ({ ticketId, setAlert, setLoading, loading, onCommentsCountChange, isClosed }) => {
     const [comments, setComments] = useState([]);
     const currentUser = getUserDetails();
     const [commentTypes, setCommentTypes] = useState(getAllowedCommentTypes());
@@ -71,43 +71,46 @@ const CommentSection = ({ ticketId, setAlert, setLoading, loading, onCommentsCou
                                 ticketId={ticketId}
                                 currentUser={currentUser}
                                 onCommentUpdated={fetchComments}
+                                isClosed={isClosed}
                             />
                         ))}
                     </div>
                 }
-                <div className="pt-4">
-                    <div className="flex items-center gap-4 mb-4">
-                        <CustomSelect
-                            name="comment_type_id"
-                            control={control}
-                            label="Visibility"
-                            options={commentTypes?.map(type => ({
-                                label: type.name,
-                                value: type.id
-                            })) || []}
-                            fullWidth={false}
-                            className="mb-0"
-                            sx={{
-                                minWidth: 200,
-                                bgcolor: 'white',
-                                display: 'inline-block',
-                                '& .MuiInputBase-root': {
-                                    height: 40,
-                                    fontSize: '0.875rem'
-                                }
-                            }}
-                        />
-                        {/* <span className="text-xs text-[#5E6C84]">Choose who can see this comment</span> */}
-                    </div>
+                {!isClosed && (
+                    <div className="pt-4">
+                        <div className="flex items-center gap-4 mb-4">
+                            <CustomSelect
+                                name="comment_type_id"
+                                control={control}
+                                label="Visibility"
+                                options={commentTypes?.map(type => ({
+                                    label: type.name,
+                                    value: type.id
+                                })) || []}
+                                fullWidth={false}
+                                className="mb-0"
+                                sx={{
+                                    minWidth: 200,
+                                    bgcolor: 'white',
+                                    display: 'inline-block',
+                                    '& .MuiInputBase-root': {
+                                        height: 40,
+                                        fontSize: '0.875rem'
+                                    }
+                                }}
+                            />
+                            {/* <span className="text-xs text-[#5E6C84]">Choose who can see this comment</span> */}
+                        </div>
 
-                    <CommentEditor
-                        ticketId={ticketId}
-                        initialVisibility={commentType}
-                        onSuccess={fetchComments}
-                        placeholder="Add a comment or share an update..."
-                        submitText="Save"
-                    />
-                </div>
+                        <CommentEditor
+                            ticketId={ticketId}
+                            initialVisibility={commentType}
+                            onSuccess={fetchComments}
+                            placeholder="Add a comment or share an update..."
+                            submitText="Save"
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

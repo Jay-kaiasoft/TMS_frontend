@@ -102,3 +102,13 @@ export const getTicketsByProjectId = async (projectId) => {
         throw error;
     }
 };
+
+export const closeOrReopenTicket = async (ticketId, statusId = null) => {
+    try {
+        const response = await axiosInterceptor.post(`/tickets/${ticketId}/close-reopen`, { status_id: statusId });
+        return response.data;
+    } catch (error) {
+        console.error(`Error closing/reopening ticket ${ticketId}:`, error);
+        throw error;
+    }
+};

@@ -38,6 +38,7 @@ const TicketFormModal = ({
             department_id: null,
             title: '',
             description: '',
+            priority: 'low',
             due_date: null,
             working_hours: null,
             user_type: 'as_customer',
@@ -172,9 +173,9 @@ const TicketFormModal = ({
             const res = await getAllStatuses();
             if (res.status === 200) {
                 const formattedConfigs = res.result?.map(s => ({ value: s.id, label: s.name })) || [];
-                setStatusesList(formattedConfigs);
+                setStatusesList(formattedConfigs.reverse());
                 if (!editingTicketId) {
-                    setValue('status_id', formattedConfigs.find((row) => row.label?.toLowerCase() === "todo")?.value || null);
+                    setValue('status_id', formattedConfigs?.find((row) => row.label?.toLowerCase() === "todo")?.value || null);
                 }
             }
         } catch (err) {
@@ -309,6 +310,7 @@ const TicketFormModal = ({
                         department_id: ticket.department_id || null,
                         title: ticket.title || '',
                         description: ticket.description || '',
+                        priority: ticket.priority || 'low',
                         due_date: formattedDate,
                         working_hours: ticket.working_hours || null,
                         user_type: isForCustomer ? 'for_customer' : 'as_customer',
@@ -330,6 +332,7 @@ const TicketFormModal = ({
                     department_id: null,
                     title: '',
                     description: '',
+                    priority: 'low',
                     due_date: null,
                     working_hours: null,
                     user_type: 'as_customer',
@@ -478,7 +481,7 @@ const TicketFormModal = ({
                             label="Ticket Owner"
                             options={users}
                         />
-                        <div className={`grid ${userData?.rolename !== "Customer" ? 'grid-cols-2' : 'grid-cols-1'} gap-4 mb-2`}>
+                        <div className={`grid ${userData?.rolename !== "Customer" ? 'grid-cols-3' : 'grid-cols-2'} gap-4 mb-2`}>
                             {
                                 userData?.rolename !== "Customer" && (
                                     <HierarchySelect
@@ -497,6 +500,17 @@ const TicketFormModal = ({
                                 label="Status"
                                 options={statusesList}
                                 rules={{ required: "Status is required" }}
+                            />
+                            <CustomSelect
+                                name="priority"
+                                control={control}
+                                label="Priority"
+                                options={[
+                                    { value: 'low', label: 'Low' },
+                                    { value: 'medium', label: 'Medium' },
+                                    { value: 'high', label: 'High' }
+                                ]}
+                                rules={{ required: "Priority is required" }}
                             />
                         </div>
 

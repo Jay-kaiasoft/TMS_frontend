@@ -22,6 +22,7 @@ import CommentSection from '../../components/common/CommentSection/CommentSectio
 import { connect } from 'react-redux';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
 import { getUserDetails } from '../../utils/getUserDetails';
+import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 
 import { useForm, Controller } from 'react-hook-form';
 import CustomInput from '../../components/common/CustomInput';
@@ -127,6 +128,7 @@ const TicketViewPage = ({ setAlert }) => {
             department_id: null,
             title: '',
             description: '',
+            priority: 'low',
             due_date: null,
             working_hours: null,
             user_type: 'as_customer',
@@ -256,7 +258,7 @@ const TicketViewPage = ({ setAlert }) => {
             const res = await getAllStatuses();
             if (res.status === 200) {
                 const formattedConfigs = res.result?.map(s => ({ value: s.id, label: s.name })) || [];
-                setStatusesList(formattedConfigs);
+                setStatusesList(formattedConfigs?.reverse());
             }
         } catch (err) {
             console.error("Failed to fetch statuses", err);
@@ -291,6 +293,7 @@ const TicketViewPage = ({ setAlert }) => {
             department_id: ticket.department_id || null,
             title: ticket.title || '',
             description: ticket.description || '',
+            priority: ticket.priority || 'low',
             due_date: formattedDate,
             working_hours: ticket.working_hours || null,
             // user_type: isForCustomer ? 'for_customer' : 'as_customer',
@@ -519,6 +522,7 @@ const TicketViewPage = ({ setAlert }) => {
     const isToday = ticket.due_date && dayjs(ticket.due_date).isSame(dayjs(), 'day');
     const relativeDueDate = ticket.due_date ? dayjs(ticket.due_date).fromNow() : null;
     const formattedDueDate = ticket.due_date ? dayjs(ticket.due_date).format('MMM D, YYYY') : "-";
+    const isClosed = ticket?.status_name?.toLowerCase() === 'close';
 
     return (
         <div className="max-w-full mx-auto px-4 space-y-4 animate-fade-in font-sans text-slate-800">
@@ -536,45 +540,52 @@ const TicketViewPage = ({ setAlert }) => {
                         Back
                     </Button>
                 </div>
-                {userData?.id === ticket?.created_by && (
-                    <div className="flex items-center gap-2">
-                        {isEditing ? (
-                            <>
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    onClick={handleCancelEdit}
-                                    className="normal-case text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-                                    sx={{ borderRadius: '8px', padding: '5px 12px', fontSize: '0.825rem' }}
-                                    disabled={isSubmitting || isUploadingFiles}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    variant="contained"
-                                    size="small"
-                                    onClick={handleSubmit(handleFormSubmit)}
-                                    className="normal-case bg-[#0052CC] hover:bg-[#0747A6] text-white font-medium shadow-sm transition-all"
-                                    sx={{ borderRadius: '8px', padding: '5px 14px', fontSize: '0.825rem' }}
-                                    disabled={isSubmitting || isUploadingFiles}
-                                    startIcon={(isSubmitting || isUploadingFiles) ? <CircularProgress size={14} color="inherit" /> : null}
-                                >
-                                    {isSubmitting ? "Saving..." : "Save Changes"}
-                                </Button>
-                            </>
-                        ) : (
-                            <Button
-                                variant="contained"
-                                size="small"
-                                startIcon={<FontAwesomeIcon icon={faEdit} />}
-                                onClick={handleStartEdit}
-                                className="normal-case bg-[#0052CC] hover:bg-[#0747A6] text-white font-medium shadow-sm transition-all"
-                                sx={{ borderRadius: '8px', padding: '5px 14px', fontSize: '0.825rem' }}
-                            >
-                                Edit Ticket
-                            </Button>
-                        )}
-                    </div>
+                {!isClosed && (
+                    <PermissionWrapper
+                        functionalityName="manage tickets"
+                        moduleName="Tickets"
+                        actionId={2}
+                        component={
+                            <div className="flex items-center gap-2">
+                                {isEditing ? (
+                                    <>
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            onClick={handleCancelEdit}
+                                            className="normal-case text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                                            sx={{ borderRadius: '8px', padding: '5px 12px', fontSize: '0.825rem' }}
+                                            disabled={isSubmitting || isUploadingFiles}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            variant="contained"
+                                            size="small"
+                                            onClick={handleSubmit(handleFormSubmit)}
+                                            className="normal-case bg-[#0052CC] hover:bg-[#0747A6] text-white font-medium shadow-sm transition-all"
+                                            sx={{ borderRadius: '8px', padding: '5px 14px', fontSize: '0.825rem' }}
+                                            disabled={isSubmitting || isUploadingFiles}
+                                            startIcon={(isSubmitting || isUploadingFiles) ? <CircularProgress size={14} color="inherit" /> : null}
+                                        >
+                                            {isSubmitting ? "Saving..." : "Save Changes"}
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button
+                                        variant="contained"
+                                        size="small"
+                                        startIcon={<FontAwesomeIcon icon={faEdit} />}
+                                        onClick={handleStartEdit}
+                                        className="normal-case bg-[#0052CC] hover:bg-[#0747A6] text-white font-medium shadow-sm transition-all"
+                                        sx={{ borderRadius: '8px', padding: '5px 14px', fontSize: '0.825rem' }}
+                                    >
+                                        Edit Ticket
+                                    </Button>
+                                )}
+                            </div>
+                        }
+                    />
                 )}
             </div>
 
@@ -623,7 +634,7 @@ const TicketViewPage = ({ setAlert }) => {
                                     </div>
                                     <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100/80 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors select-none">
                                         <FontAwesomeIcon icon={faCalendarAlt} className="text-slate-400" />
-                                        <span>Created {dayjs(ticket.created_date).format("MM/DD/YYYY")}</span>
+                                        <span>Created {dayjs(ticket.created_date).format("MMMM D, YYYY")}</span>
                                     </div>
                                     <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100/80 px-2 py-0.5 rounded-md hover:bg-slate-100 transition-colors select-none">
                                         <FontAwesomeIcon icon={faComments} className="text-slate-400" />
@@ -754,6 +765,7 @@ const TicketViewPage = ({ setAlert }) => {
                         <CommentSection
                             ticketId={id}
                             onCommentsCountChange={(count) => setCommentsCount(count)}
+                            isClosed={isClosed}
                         />
                     </Paper>
                 </div>
@@ -778,7 +790,7 @@ const TicketViewPage = ({ setAlert }) => {
                             {isEditing ? (
                                 <div className="space-y-3">
                                     {/* User Type Selector for non-Customers */}
-                                    {userData?.rolename !== "Customer" && (
+                                    {/* {userData?.rolename !== "Customer" && (
                                         <div className="flex flex-col gap-1 pb-1">
                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                                                 User Type
@@ -797,7 +809,7 @@ const TicketViewPage = ({ setAlert }) => {
                                                 )}
                                             />
                                         </div>
-                                    )}
+                                    )} */}
 
                                     {/* Status */}
                                     <div className="space-y-1">
@@ -809,6 +821,23 @@ const TicketViewPage = ({ setAlert }) => {
                                             control={control}
                                             options={statusesList}
                                             rules={{ required: "Status is required" }}
+                                        />
+                                    </div>
+
+                                    {/* Priority */}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+                                            <FontAwesomeIcon icon={faExclamationTriangle} size="xs" /> Priority
+                                        </label>
+                                        <CustomSelect
+                                            name="priority"
+                                            control={control}
+                                            options={[
+                                                { value: 'low', label: 'Low' },
+                                                { value: 'medium', label: 'Medium' },
+                                                { value: 'high', label: 'High' }
+                                            ]}
+                                            rules={{ required: "Priority is required" }}
                                         />
                                     </div>
 
@@ -921,6 +950,25 @@ const TicketViewPage = ({ setAlert }) => {
                                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColorClass(ticket.status_name)}`}>
                                             <span className={`w-1.5 h-1.5 rounded-full ${getStatusDotColor(ticket.status_name)} animate-pulse`} />
                                             {ticket.status_name || 'Unassigned'}
+                                        </span>
+                                    </div>
+
+                                    {/* Priority details */}
+                                    <span className="text-slate-500 font-medium flex items-center gap-1.5 select-none hover:text-[#0052CC] transition-colors">
+                                        <FontAwesomeIcon icon={faExclamationTriangle} size="xs" className="text-slate-400" /> Priority
+                                    </span>
+                                    <div className="hover:bg-slate-50/50 p-1 -m-1 rounded transition-colors select-none">
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                                            ticket.priority?.toLowerCase() === 'high' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                            ticket.priority?.toLowerCase() === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                            'bg-slate-50 text-slate-700 border-slate-200'
+                                        }`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${
+                                                ticket.priority?.toLowerCase() === 'high' ? 'bg-rose-500' :
+                                                ticket.priority?.toLowerCase() === 'medium' ? 'bg-amber-500' :
+                                                'bg-slate-500'
+                                            }`} />
+                                            {ticket.priority ? ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1) : 'Low'}
                                         </span>
                                     </div>
 
@@ -1061,6 +1109,7 @@ const TicketViewPage = ({ setAlert }) => {
                                                                                 color: '#0052CC',
                                                                             },
                                                                         }}
+                                                                        disabled={isClosed}
                                                                     />
                                                                 }
                                                                 label={<span className="text-[9px] text-slate-500 font-medium font-sans">Send Mail</span>}
@@ -1144,6 +1193,11 @@ const TicketViewPage = ({ setAlert }) => {
                                                                                 color: '#337fff',
                                                                             },
                                                                         }}
+                                                                        disabled={isClosed || !PermissionWrapper.hasPermission({
+                                                                            functionalityName: "manage tickets",
+                                                                            moduleName: "Tickets",
+                                                                            actionId: 2
+                                                                        })}
                                                                     />
                                                                 }
                                                                 label={<span className="text-[9px] text-slate-500 font-medium font-sans">Send Email</span>}
@@ -1177,7 +1231,7 @@ const TicketViewPage = ({ setAlert }) => {
                                     Todays Work
                                 </span>
                             </div>
-                            
+
                             <div className="space-y-4">
                                 <div className="flex gap-2 items-center text-xs">
                                     <span className="text-slate-500 font-medium w-10 text-right">Hour:</span>
@@ -1191,7 +1245,7 @@ const TicketViewPage = ({ setAlert }) => {
                                                 <option key={h} value={h}>{h}</option>
                                             ))}
                                         </select>
-                                        
+
                                         <span className="text-slate-500 font-medium ml-1">Min:</span>
                                         <select
                                             value={workMinutes}
@@ -1202,14 +1256,14 @@ const TicketViewPage = ({ setAlert }) => {
                                                 <option key={m} value={m}>{m}</option>
                                             ))}
                                         </select>
-                                        
+
                                         <input
                                             type="text"
                                             value={dayjs().format('YYYY-MM-DD')}
                                             disabled
                                             className="border border-slate-100 rounded p-1 px-2 bg-slate-50 text-xs w-24 text-center cursor-not-allowed text-slate-400 font-medium ml-1"
                                         />
-                                        
+
                                         <Tooltip title="Save Work Log">
                                             <button
                                                 onClick={handleSaveTodayWork}
@@ -1225,7 +1279,7 @@ const TicketViewPage = ({ setAlert }) => {
                                         </Tooltip>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex gap-2 items-start text-xs">
                                     <span className="text-slate-500 font-medium pt-1.5 w-10 text-right">Note:</span>
                                     <textarea

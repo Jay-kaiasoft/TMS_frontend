@@ -19,7 +19,8 @@ const ConfirmDialog = ({
     description,
     confirmText = "Confirm",
     cancelText = "Cancel",
-    isDestructive = false
+    isDestructive = false,
+    children
 }) => {
     return (
         <Dialog
@@ -48,9 +49,12 @@ const ConfirmDialog = ({
             </div>
 
             <DialogContent sx={{ px: 6, pb: 4, pt: 0 }}>
-                <DialogContentText sx={{ color: '#4B5563', fontSize: '0.95rem' }}>
-                    {description}
-                </DialogContentText>
+                {description && (
+                    <DialogContentText sx={{ color: '#4B5563', fontSize: '0.95rem', mb: children ? 2 : 0 }}>
+                        {description}
+                    </DialogContentText>
+                )}
+                {children}
             </DialogContent>
 
             <DialogActions sx={{ px: 3 }}>

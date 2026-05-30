@@ -1,12 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button, Avatar, Chip, LinearProgress } from '@mui/material';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { Button, Avatar, Chip, LinearProgress, Tooltip } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowTrendUp, faTicketAlt, faCheckCircle, faTasks, faClock } from '@fortawesome/free-solid-svg-icons';
 import { connect } from 'react-redux';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { getCookie, removeCookie } from '../utils/cookieHelper';
 import { getDashboardData } from '../services/authService';
+
+const formatDate = (dateString, includeTime = false) => {
+    if (!dateString) return "-";
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return "-";
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        if (includeTime) {
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day}/${month}/${year} ${hours}:${minutes}`;
+        }
+        return `${day}/${month}/${year}`;
+    } catch (e) {
+        return "-";
+    }
+};
+
+const isOverdue = (dateString) => {
+    if (!dateString) return false;
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return date < today;
+    } catch (e) {
+        return false;
+    }
+};
 
 const Dashboard = ({ sessionEndModel }) => {
     const navigate = useNavigate();
@@ -33,21 +65,184 @@ const Dashboard = ({ sessionEndModel }) => {
 
             {/* Stat Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="relative overflow-hidden p-6 bg-white border border-[#DFE1E6] rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h3 className="font-medium text-[#5E6C84] text-sm uppercase tracking-wider">Assigned To Me</h3>
-                            <p className="text-4xl font-bold mt-2 text-[#172B4D]">{data?.assigned_tickets_count}</p>
+                <Tooltip
+                    title={
+                        data?.assigned_tickets?.length > 0 ? (
+                            <div className="p-1 space-y-2">
+                                <div className="font-bold text-xs border-b border-gray-100 pb-1.5 text-[#5E6C84] uppercase tracking-wider">
+                                    Assigned Tickets
+                                </div>
+                                <ul className="m-0 pl-3 list-disc space-y-1.5">
+                                    {data.assigned_tickets.map((t) => (
+                                        <li key={t.id} className="text-xs font-semibold text-[#172B4D] leading-relaxed">
+                                            <NavLink to={`/dashboard/manage-tickets/view/${t.id}`} className="text-[#0052CC] font-mono mr-1 cursor-pointer">{t.ticket_no}</NavLink>: {t.title}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ) : "No tickets assigned"
+                    }
+                    arrow
+                    placement="right"
+                    slotProps={{
+                        tooltip: {
+                            sx: {
+                                backgroundColor: '#ffffff',
+                                color: '#172B4D',
+                                boxShadow: '0px 8px 24px rgba(9, 30, 66, 0.15), 0px 0px 1px rgba(9, 30, 66, 0.31)',
+                                borderRadius: '8px',
+                                padding: '12px 16px',
+                                maxWidth: '320px',
+                                border: '1px solid #DFE1E6'
+                            }
+                        },
+                        arrow: {
+                            sx: {
+                                color: '#ffffff'
+                            }
+                        }
+                    }}
+                >
+                    <div
+                        className="relative overflow-hidden p-6 bg-white border border-[#DFE1E6] rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group cursor-pointer"
+                        onClick={() => navigate('/dashboard/manage-tickets')}
+                    >
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h3 className="font-medium text-[#5E6C84] text-sm uppercase tracking-wider">Assigned To Me</h3>
+                                <p className="text-4xl font-bold mt-2 text-[#172B4D]">{data?.assigned_tickets_count}</p>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-[#FFF0B3] text-[#FF991F] flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <FontAwesomeIcon icon={faTasks} size="lg" />
+                            </div>
                         </div>
-                        <div className="w-12 h-12 rounded-xl bg-[#FFF0B3] text-[#FF991F] flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <FontAwesomeIcon icon={faTasks} size="lg" />
-                        </div>
+                        {/* <div className="mt-4 flex items-center gap-2 text-sm">
+                            <span className="text-[#5E6C84]">2 high priority</span>
+                        </div> */}
+                        <div className="absolute bottom-0 left-0 w-full h-1 bg-linear-to-r from-[#FFAB00] to-[#FFC400]" />
                     </div>
-                    {/* <div className="mt-4 flex items-center gap-2 text-sm">
-                        <span className="text-[#5E6C84]">2 high priority</span>
-                    </div> */}
-                    <div className="absolute bottom-0 left-0 w-full h-1 bg-linear-to-r from-[#FFAB00] to-[#FFC400]" />
+                </Tooltip>
+            </div>
+
+            {/* Unanswered Tickets Section */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold text-[#172B4D]">Unanswered Tickets</h2>
+                    {data?.unanswered_tickets?.length > 0 && (
+                        <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FFEBE6] text-[#DE350B]">
+                            {data.unanswered_tickets.length}
+                        </span>
+                    )}
                 </div>
+
+                {!data?.unanswered_tickets || data.unanswered_tickets.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-[#DFE1E6] rounded-2xl shadow-sm">
+                        <div className="w-16 h-16 bg-[#E3FCEF] rounded-full flex items-center justify-center mb-4 text-[#36B37E]">
+                            <FontAwesomeIcon icon={faCheckCircle} size="2x" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-[#172B4D] mb-1">All caught up!</h3>
+                        <p className="text-[#5E6C84]">No unanswered tickets assigned to you.</p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block bg-white border border-[#DFE1E6] rounded-2xl shadow-sm overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-[#DFE1E6]">
+                                    <thead className="bg-[#FAFBFC]">
+                                        <tr>
+                                            <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">Ticket ID</th>
+                                            <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">Title</th>
+                                            <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">Project</th>
+                                            <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">Department</th>
+                                            <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">Status</th>
+                                            <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">Created By</th>
+                                            <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">Last Post</th>
+                                            <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#8993A4] uppercase tracking-wider">Due Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-[#DFE1E6]">
+                                        {data?.unanswered_tickets?.map((ticket) => (
+                                            <tr
+                                                key={ticket.id}
+                                                className="hover:bg-[#FAFBFC] transition-colors cursor-pointer group"
+                                                onClick={() => navigate(`/dashboard/manage-tickets/view/${ticket.id}`)}
+                                            >
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#0052CC] hover:underline">
+                                                    {ticket.ticket_no}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#172B4D] group-hover:text-[#0052CC] transition-colors">
+                                                    {ticket.title}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[#5E6C84]">
+                                                    {ticket.project_name}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[#5E6C84]">
+                                                    {ticket.department_name}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E9F2FF] text-[#0052CC]">
+                                                        {ticket.status_name}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[#5E6C84]">
+                                                    {ticket.created_by_name}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-[#5E6C84]">
+                                                    {formatDate(ticket.last_post_date, true)}
+                                                </td>
+                                                <td className={`px-6 py-4 whitespace-nowrap text-sm ${isOverdue(ticket.due_date) ? 'text-[#DE350B] font-semibold' : 'text-[#5E6C84]'}`}>
+                                                    {formatDate(ticket.due_date)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="grid grid-cols-1 gap-4 md:hidden">
+                            {data.unanswered_tickets.map((ticket) => (
+                                <div
+                                    key={ticket.id}
+                                    className="p-5 bg-white border border-[#DFE1E6] rounded-2xl shadow-xs hover:shadow-md transition-all active:scale-[0.99] cursor-pointer"
+                                    onClick={() => navigate(`/dashboard/manage-tickets/view/${ticket.id}`)}
+                                >
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="text-sm font-bold text-[#0052CC]">{ticket.ticket_no}</span>
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#E9F2FF] text-[#0052CC]">
+                                            {ticket.status_name}
+                                        </span>
+                                    </div>
+                                    <h4 className="font-bold text-base text-[#172B4D] mb-3 line-clamp-2 hover:text-[#0052CC] transition-colors">{ticket.title}</h4>
+                                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs border-t border-[#F4F5F7] pt-4">
+                                        <div>
+                                            <span className="text-[#8993A4] block font-medium mb-0.5">Project</span>
+                                            <span className="text-[#172B4D] font-semibold">{ticket.project_name}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[#8993A4] block font-medium mb-0.5">Department</span>
+                                            <span className="text-[#172B4D] font-semibold">{ticket.department_name}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[#8993A4] block font-medium mb-0.5">Created By</span>
+                                            <span className="text-[#172B4D] font-semibold">{ticket.created_by_name}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[#8993A4] block font-medium mb-0.5">Due Date</span>
+                                            <span className={`font-semibold ${isOverdue(ticket.due_date) ? 'text-[#DE350B]' : 'text-[#172B4D]'}`}>{formatDate(ticket.due_date)}</span>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <span className="text-[#8993A4] block font-medium mb-0.5">Last Comment</span>
+                                            <span className="text-[#172B4D] font-semibold">{formatDate(ticket.last_post_date, true)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Bottom Section

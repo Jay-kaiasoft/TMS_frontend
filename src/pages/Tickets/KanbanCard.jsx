@@ -3,16 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { Draggable } from '@hello-pangea/dnd';
 import { Box, Typography, IconButton, Tooltip, Avatar, AvatarGroup } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faExclamationTriangle, faCalendarAlt, faCheckSquare, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faExclamationTriangle, faCalendarAlt, faCheckSquare, faTrash, faClose, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
 import dayjs from 'dayjs';
 import InlineEdit from '../../components/common/InlineEdit';
 import TicketFormModal from './TicketFormModal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { connect } from 'react-redux';
 import { setAlert } from '../../redux/commonReducers/commonReducers';
-import { deleteTicket } from '../../services/ticketService';
+import { deleteTicket, closeOrReopenTicket } from '../../services/ticketService';
 import PermissionWrapper from '../../components/permissionWrapper/PermissionWrapper';
 import { getUserDetails } from '../../utils/getUserDetails';
+import { useForm } from 'react-hook-form';
+import { getAllStatuses } from '../../services/statusService';
+import CustomSelect from '../../components/common/CustomSelect';
 
 const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) => {
     const userData = getUserDetails();
@@ -23,10 +26,64 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
     const [editingTicketId, setEditingTicketId] = useState(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState({ open: false, ticket: null });
 
+    const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+    const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+    const [statuses, setStatuses] = useState([]);
+
+    const { control, watch, setValue } = useForm({
+        defaultValues: {
+            reopen_status_id: ''
+        }
+    });
+
+    const handleCloseTicket = async () => {
+        try {
+            await closeOrReopenTicket(ticket.id, null);
+            setAlert({ open: true, message: "Ticket closed successfully!", type: "success" });
+            fetchTickets();
+            setCloseConfirmOpen(false);
+        } catch (err) {
+            setAlert({ open: true, message: err.message || "Failed to close ticket.", type: "error" });
+        }
+    };
+
+    const handleReopenTicket = async () => {
+        const statusId = watch('reopen_status_id');
+        if (!statusId) {
+            setAlert({ open: true, message: "Please select a status to reopen.", type: "warning" });
+            return;
+        }
+        try {
+            await closeOrReopenTicket(ticket.id, statusId);
+            setAlert({ open: true, message: "Ticket reopened successfully!", type: "success" });
+            fetchTickets();
+            setReopenDialogOpen(false);
+            setValue('reopen_status_id', '');
+        } catch (err) {
+            setAlert({ open: true, message: err.message || "Failed to reopen ticket.", type: "error" });
+        }
+    };
+
+    const openReopenDialogHandler = async (e) => {
+        e.stopPropagation();
+        setReopenDialogOpen(true);
+        try {
+            const res = await getAllStatuses();
+            if (res.status === 200) {
+                const list = res.result
+                    ?.filter(s => s.name?.toLowerCase() !== 'close')
+                    ?.map(s => ({ value: s.id, label: s.name })) || [];
+                setStatuses(list);
+            }
+        } catch (err) {
+            console.error("Failed to load statuses", err);
+        }
+    };
+
     // Safe due date validation
     const isValidDueDate = ticket.due_date && dayjs(ticket.due_date).isValid();
-    const isOverdue = isValidDueDate && 
-        dayjs(ticket.due_date).isBefore(dayjs(), 'day') && 
+    const isOverdue = isValidDueDate &&
+        dayjs(ticket.due_date).isBefore(dayjs(), 'day') &&
         ticket.status_name?.toLowerCase() !== 'done';
 
     const handleSaveTitle = (newTitle) => {
@@ -118,8 +175,8 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                     >
                                         {ticket.title}
                                     </Typography>
-                                    {(isHovered && ticket.created_by === userData.id) && (
-                                        <Box 
+                                    {isHovered && (
+                                        <Box
                                             onClick={(e) => e.stopPropagation()}
                                             onMouseDown={(e) => e.stopPropagation()}
                                             sx={{ position: 'absolute', right: 8, top: 12, display: 'flex', gap: 0.5 }}
@@ -127,35 +184,32 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                             <PermissionWrapper
                                                 functionalityName="manage tickets"
                                                 moduleName="Tickets"
-                                                actionId={2}
-                                                component={
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            navigate(`/dashboard/manage-tickets/view/${ticket.id}`);
-                                                        }}
-                                                        sx={{ padding: '4px', color: '#6B778C' }}
-                                                    >
-                                                        <FontAwesomeIcon icon={faEdit} size="xs" />
-                                                    </IconButton>
-                                                }
-                                            />
-                                            <PermissionWrapper
-                                                functionalityName="manage tickets"
-                                                moduleName="Tickets"
                                                 actionId={3}
                                                 component={
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            openDeleteConfirm(ticket);
-                                                        }}
-                                                        sx={{ padding: '4px', color: '#DE350B' }}
-                                                    >
-                                                        <FontAwesomeIcon icon={faTrash} size="xs" />
-                                                    </IconButton>
+                                                    ticket.status_name?.toLowerCase() === 'close' ? (
+                                                        <Tooltip title="Reopen Ticket" arrow placement='bottom'>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={openReopenDialogHandler}
+                                                                sx={{ padding: '4px', color: '#36B37E' }}
+                                                            >
+                                                                <FontAwesomeIcon icon={faRotateLeft} size="xs" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <Tooltip title="Close Ticket" arrow placement='bottom'>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setCloseConfirmOpen(true);
+                                                                }}
+                                                                sx={{ padding: '4px', color: '#DE350B' }}
+                                                            >
+                                                                <FontAwesomeIcon icon={faClose} size="xs" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    )
                                                 }
                                             />
                                         </Box>
@@ -163,10 +217,10 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                 </Box>
 
                                 {/* Bottom row with ticket ID, due date, and assignees - now with flex wrap for better responsiveness */}
-                                <Box sx={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    alignItems: 'center', 
+                                <Box sx={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
                                     mt: 1,
                                     flexWrap: 'wrap',
                                     gap: 1,
@@ -180,9 +234,9 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                                     </Box>
 
                                     {/* Due date and assignees container with wrapping support */}
-                                    <Box sx={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
+                                    <Box sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
                                         gap: 1,
                                         flexWrap: 'wrap',
                                         justifyContent: 'flex-end',
@@ -282,6 +336,36 @@ const KanbanCard = ({ ticket, index, onUpdateTitle, fetchTickets, setAlert }) =>
                 confirmText="Delete"
                 isDestructive={true}
             />
+            <ConfirmDialog
+                open={closeConfirmOpen}
+                onClose={() => setCloseConfirmOpen(false)}
+                onConfirm={handleCloseTicket}
+                title="Close Ticket"
+                description={`Are you sure you want to close "${ticket.title}"?`}
+                confirmText="Close Ticket"
+                isDestructive={true}
+            />
+            <ConfirmDialog
+                open={reopenDialogOpen}
+                onClose={() => {
+                    setReopenDialogOpen(false);
+                    setValue('reopen_status_id', '');
+                }}
+                onConfirm={handleReopenTicket}
+                title="Reopen Ticket"
+                description={`Select a new status to reopen "${ticket.title}":`}
+                confirmText="Reopen"
+            >
+                <div className="mt-4">
+                    <CustomSelect
+                        name="reopen_status_id"
+                        control={control}
+                        label="Select Status"
+                        options={statuses?.reverse()}
+                        rules={{ required: "Status is required to reopen" }}
+                    />
+                </div>
+            </ConfirmDialog>
         </>
     );
 };

@@ -13,7 +13,7 @@ import { setAlert, setLoading } from '../../../redux/commonReducers/commonReduce
 
 dayjs.extend(relativeTime);
 
-const CommentItem = ({ comment, ticketId, onCommentUpdated, currentUser, setLoading, setAlert, loading }) => {
+const CommentItem = ({ comment, ticketId, onCommentUpdated, currentUser, setLoading, setAlert, loading, isClosed }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [isReplying, setIsReplying] = useState(false);
     const [anchorEl, setAnchorEl] = useState(null);
@@ -78,7 +78,7 @@ const CommentItem = ({ comment, ticketId, onCommentUpdated, currentUser, setLoad
     };
 
     const formatDate = (dateString) => {
-        return dayjs(dateString).fromNow();
+        return dayjs(dateString).format("MMMM D, YYYY");
     };
 
     return (
@@ -99,14 +99,14 @@ const CommentItem = ({ comment, ticketId, onCommentUpdated, currentUser, setLoad
                     </div>
 
                     <div className="flex items-center gap-1">
-                        {!isEditing && (
+                        {!isClosed && !isEditing && (
                             <Tooltip title="Reply">
                                 <IconButton size="small" onClick={() => setIsReplying(!isReplying)} sx={{ color: '#42526E' }}>
                                     <FontAwesomeIcon icon={faReply} style={{ fontSize: '14px' }} />
                                 </IconButton>
                             </Tooltip>
                         )}
-                        {comment.created_by === currentUser?.id && (
+                        {!isClosed && comment.created_by === currentUser?.id && (
                             <>
                                 <IconButton size="small" onClick={handleMenuClick} sx={{ color: '#42526E' }}>
                                     <FontAwesomeIcon icon={faEllipsisV} style={{ fontSize: '14px' }} />
@@ -191,6 +191,7 @@ const CommentItem = ({ comment, ticketId, onCommentUpdated, currentUser, setLoad
                                 currentUser={currentUser}
                                 setLoading={setLoading}
                                 setAlert={setAlert}
+                                isClosed={isClosed}
                             />
                         ))}
                     </div>
